@@ -57,6 +57,7 @@ import emlab.gen.repository.Reps;
 import emlab.gen.repository.StrategicReserveOperatorRepository;
 import emlab.gen.util.GeometricTrendRegression;
 import emlab.gen.util.MapValueComparator;
+import emlab.gen.util.SimpleRegressionWithPredictionInterval;
 
 /**
  * {@link EnergyProducer}s decide to invest in new {@link PowerPlant}
@@ -69,7 +70,7 @@ import emlab.gen.util.MapValueComparator;
 @Configurable
 @NodeEntity
 public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends EnergyProducer> extends
-GenericInvestmentRole<T> implements Role<T>, NodeBacked {
+        GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
     @Transient
     @Autowired
@@ -89,7 +90,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
     @Override
     public void act(T agent) {
-        boolean riskConsideration = true; // TODO
+        boolean riskConsideration = true; // TODO?
 
         long futureTimePoint = getCurrentTick() + agent.getInvestmentFutureTimeHorizon();
         // logger.warn(agent + " is looking at timepoint " + futureTimePoint);
@@ -101,7 +102,13 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         // be taken into account for the regression
         // Second function predict fuel prices, that gets the agent, this
         // collection and the future time Point and returns the predicted price
-        Map<Substance, Double> expectedFuelPrices = predictFuelPrices(agent, futureTimePoint);
+        Map<Substance, SimpleRegressionWithPredictionInterval> fuelRegressions = predictFuelPrices(agent);
+        Map<Substance, Double> expectedFuelPrices = new HashMap<Substance, Double>();
+
+        // TODO Testen, ob das so klappt
+        for (Map.Entry<Substance, SimpleRegressionWithPredictionInterval> e : fuelRegressions.entrySet()) {
+            expectedFuelPrices.put(e.getKey(), e.getValue().predict(futureTimePoint));
+        }
 
         // CO2
         Map<ElectricitySpotMarket, Double> expectedCO2Price = determineExpectedCO2PriceInclTaxAndFundamentalForecast(
@@ -205,7 +212,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
             if ((expectedInstalledCapacityOfTechnology + plant.getActualNominalCapacity())
                     / (marketInformation.maxExpectedLoad + plant.getActualNominalCapacity()) > technology
-                    .getMaximumInstalledCapacityFractionInCountry()) {
+                        .getMaximumInstalledCapacityFractionInCountry()) {
                 // logger.warn(agent +
                 // " will not invest in {} technology because there's too much of this type in the market",
                 // technology);
@@ -428,9 +435,9 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
      * @param futureTimePoint
      * @return Map<Substance, Double> of predicted prices.
      */
-    public Map<Substance, Double> predictFuelPrices(EnergyProducer agent, long futureTimePoint) {
+    public Map<Substance, SimpleRegressionWithPredictionInterval> predictFuelPrices(EnergyProducer agent) {
         // Fuel Prices
-        Map<Substance, Double> expectedFuelPrices = new HashMap<Substance, Double>();
+        Map<Substance, SimpleRegressionWithPredictionInterval> expectedFuelPrices = new HashMap<Substance, SimpleRegressionWithPredictionInterval>();
         for (Substance substance : reps.substanceRepository.findAllSubstancesTradedOnCommodityMarkets()) {
             // Find Clearing Points for the last 5 years (counting current year
             // as one of the last 5 years).
@@ -441,14 +448,14 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
             // getCurrentTick()-(agent.getNumberOfYearsBacklookingForForecasting()-1),
             // getCurrentTick());
             // Create regression object
-            SimpleRegression gtr = new SimpleRegression();
+            SimpleRegressionWithPredictionInterval gtr = new SimpleRegressionWithPredictionInterval();
             for (ClearingPoint clearingPoint : cps) {
                 // logger.warn("CP {}: {} , in" + clearingPoint.getTime(),
                 // substance.getName(), clearingPoint.getPrice());
                 gtr.addData(clearingPoint.getTime(), clearingPoint.getPrice());
             }
             gtr.addData(getCurrentTick(), findLastKnownPriceForSubstance(substance, getCurrentTick()));
-            expectedFuelPrices.put(substance, gtr.predict(futureTimePoint));
+            expectedFuelPrices.put(substance, gtr);
             // logger.warn("Forecast {}: {}, in Step " + futureTimePoint,
             // substance, expectedFuelPrices.get(substance));
         }
@@ -710,7 +717,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         }
         ClearingPoint expectedCO2ClearingPoint = reps.clearingPointRepository.findClearingPointForMarketAndTime(
                 co2Auction, getCurrentTick()
-                + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
+                        + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
                 true);
         expectedCO2Price = (expectedCO2ClearingPoint == null) ? 0 : expectedCO2ClearingPoint.getPrice();
         expectedCO2Price = (expectedCO2Price + expectedRegressionCO2Price) / 2;
