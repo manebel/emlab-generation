@@ -70,7 +70,7 @@ import emlab.gen.util.SimpleRegressionWithPredictionInterval;
 @Configurable
 @NodeEntity
 public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends EnergyProducer> extends
-        GenericInvestmentRole<T> implements Role<T>, NodeBacked {
+GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
     @Transient
     @Autowired
@@ -91,9 +91,15 @@ public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends En
     @Override
     public void act(T agent) {
         boolean riskConsideration = true; // TODO?
+        boolean debug = true;
+
+        if (debug) {
+            logger.warn("Starting act() in InvestInPowerGenerationTechnologiesWithCO2ForecastRole.");
+        }
 
         long futureTimePoint = getCurrentTick() + agent.getInvestmentFutureTimeHorizon();
-        // logger.warn(agent + " is looking at timepoint " + futureTimePoint);
+        if (debug)
+            logger.warn(agent + " is looking at timepoint " + futureTimePoint);
 
         // ==== Expectations ===
 
@@ -104,8 +110,6 @@ public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends En
         // collection and the future time Point and returns the predicted price
         Map<Substance, SimpleRegressionWithPredictionInterval> fuelRegressions = predictFuelPrices(agent);
         Map<Substance, Double> expectedFuelPrices = new HashMap<Substance, Double>();
-
-        // TODO Testen, ob das so klappt
         for (Map.Entry<Substance, SimpleRegressionWithPredictionInterval> e : fuelRegressions.entrySet()) {
             expectedFuelPrices.put(e.getKey(), e.getValue().predict(futureTimePoint));
         }
@@ -212,7 +216,7 @@ public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends En
 
             if ((expectedInstalledCapacityOfTechnology + plant.getActualNominalCapacity())
                     / (marketInformation.maxExpectedLoad + plant.getActualNominalCapacity()) > technology
-                        .getMaximumInstalledCapacityFractionInCountry()) {
+                    .getMaximumInstalledCapacityFractionInCountry()) {
                 // logger.warn(agent +
                 // " will not invest in {} technology because there's too much of this type in the market",
                 // technology);
@@ -247,7 +251,6 @@ public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends En
                         expectedCO2Price.get(market));
                 plant.setFuelMix(fuelMix);
 
-                // Das muss in der Szenario analyse verändert werden
                 double expectedMarginalCost = determineExpectedMarginalCost(plant, expectedFuelPrices,
                         expectedCO2Price.get(market));
                 double runningHours = 0d;
@@ -473,35 +476,11 @@ public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends En
      * @return Map<Substance, Double> of predicted prices.
      */
     // TODO
-    public Map<Substance, Double> calculateVoltality(EnergyProducerConsideringRisk agent, long futureTimePoint) {
+    public Map<Substance, Double> calculateVolatility(EnergyProducerConsideringRisk agent, long futureTimePoint) {
         // Fuel Prices
-        Map<Substance, Double> expectedFuelPrices = new HashMap<Substance, Double>();
-        for (Substance substance : reps.substanceRepository.findAllSubstancesTradedOnCommodityMarkets()) {
-            // Find Clearing Points for the last 5 years (counting current year
-            // as one of the last 5 years).
-            Iterable<ClearingPoint> cps = reps.clearingPointRepository
-                    .findAllClearingPointsForSubstanceTradedOnCommodityMarkesAndTimeRange(substance, getCurrentTick()
-                            - (agent.getNumberOfYearsBacklookingForForecasting() - 1), getCurrentTick(), false);
-            // logger.warn("{}, {}",
-            // getCurrentTick()-(agent.getNumberOfYearsBacklookingForForecasting()-1),
-            // getCurrentTick());
-            // Create regression object
-            SimpleRegression gtr = new SimpleRegression();
-            for (ClearingPoint clearingPoint : cps) {
-                // logger.warn("CP {}: {} , in" + clearingPoint.getTime(),
-                // substance.getName(), clearingPoint.getPrice());
-                gtr.addData(clearingPoint.getTime(), clearingPoint.getPrice());
-            }
-            gtr.addData(getCurrentTick(), findLastKnownPriceForSubstance(substance, getCurrentTick()));
-
-            // CHANGE calculate the SlopeConfidenceInterval //TODO
-            double volatility = gtr.getSlopeConfidenceInterval(1 - agent.getKonfidenzintervall());
-
-            expectedFuelPrices.put(substance, voltality);
-            // logger.warn("Forecast {}: {}, in Step " + futureTimePoint,
-            // substance, expectedFuelPrices.get(substance));
-        }
-        return expectedFuelPrices;
+        Map<Substance, Double> fuelVolatility = new HashMap<Substance, Double>();
+        // TODO
+        return fuelVolatility;
     }
 
     // Create a powerplant investment and operation cash-flow in the form of a
@@ -717,7 +696,7 @@ public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends En
         }
         ClearingPoint expectedCO2ClearingPoint = reps.clearingPointRepository.findClearingPointForMarketAndTime(
                 co2Auction, getCurrentTick()
-                        + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
+                + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
                 true);
         expectedCO2Price = (expectedCO2ClearingPoint == null) ? 0 : expectedCO2ClearingPoint.getPrice();
         expectedCO2Price = (expectedCO2Price + expectedRegressionCO2Price) / 2;
