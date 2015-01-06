@@ -1,12 +1,12 @@
 /*******************************************************************************
  * Copyright 2013 the original author or authors.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,14 +30,13 @@ import emlab.gen.role.AbstractEnergyProducerRole;
 @RoleComponent
 @NodeEntity
 public class GenericInvestmentRole<T extends EnergyProducer> extends AbstractEnergyProducerRole<T> implements Role<T>,
-		NodeBacked {
+NodeBacked {
 
-	@Override
-	public void act(T agent) {
-		// logger.warn(agent.getName() + " does " +
-		// agent.getInvestmentRole().getClass().toString());
-			agent.getInvestmentRole().act(agent);
-	}
-
+    @Override
+    public void act(T agent) {
+        logger.warn("GenericInvestmentRole: " + agent.getName() + " does "
+                + agent.getInvestmentRole().getClass().toString());
+        agent.getInvestmentRole().act(agent);
+    }
 
 }

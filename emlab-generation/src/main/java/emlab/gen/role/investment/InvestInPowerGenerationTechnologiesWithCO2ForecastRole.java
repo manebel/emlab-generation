@@ -70,7 +70,7 @@ import emlab.gen.util.SimpleRegressionWithPredictionInterval;
 @Configurable
 @NodeEntity
 public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends EnergyProducer> extends
-GenericInvestmentRole<T> implements Role<T>, NodeBacked {
+        GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
     @Transient
     @Autowired
@@ -216,7 +216,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
             if ((expectedInstalledCapacityOfTechnology + plant.getActualNominalCapacity())
                     / (marketInformation.maxExpectedLoad + plant.getActualNominalCapacity()) > technology
-                    .getMaximumInstalledCapacityFractionInCountry()) {
+                        .getMaximumInstalledCapacityFractionInCountry()) {
                 // logger.warn(agent +
                 // " will not invest in {} technology because there's too much of this type in the market",
                 // technology);
@@ -440,6 +440,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
      */
     public Map<Substance, SimpleRegressionWithPredictionInterval> predictFuelPrices(EnergyProducer agent) {
         // Fuel Prices
+        logger.warn("InvestInPowerGenerationTechnologiesWithCO2ForecastRole: predictFuelPrices()");
         Map<Substance, SimpleRegressionWithPredictionInterval> expectedFuelPrices = new HashMap<Substance, SimpleRegressionWithPredictionInterval>();
         for (Substance substance : reps.substanceRepository.findAllSubstancesTradedOnCommodityMarkets()) {
             // Find Clearing Points for the last 5 years (counting current year
@@ -696,7 +697,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         }
         ClearingPoint expectedCO2ClearingPoint = reps.clearingPointRepository.findClearingPointForMarketAndTime(
                 co2Auction, getCurrentTick()
-                + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
+                        + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
                 true);
         expectedCO2Price = (expectedCO2ClearingPoint == null) ? 0 : expectedCO2ClearingPoint.getPrice();
         expectedCO2Price = (expectedCO2Price + expectedRegressionCO2Price) / 2;

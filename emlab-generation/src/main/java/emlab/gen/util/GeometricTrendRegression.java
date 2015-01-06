@@ -40,7 +40,7 @@ public class GeometricTrendRegression extends SimpleRegression {
     @Override
     public void addData(double[][] data) {
         for (double[] d : data) {
-            addData(d[0], Math.log(d[1]));
+            addData(d[0], d[1]);
         }
     }
 
@@ -48,6 +48,7 @@ public class GeometricTrendRegression extends SimpleRegression {
     public void removeData(double[][] data) {
         for (int i = 0; i < data.length && super.getN() > 0; i++) {
             removeData(data[i][0], Math.log(data[i][1]));
+            // removeData(data[i][0], data[i][1]); // ISN'T THIS CORRECT?
         }
     }
 
