@@ -31,10 +31,10 @@ import org.springframework.data.neo4j.support.Neo4jTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import agentspring.role.Role;
+import emlab.gen.domain.agent.AbstractEnergyProducerConsideringRiskScenarios;
 import emlab.gen.domain.agent.BigBank;
 import emlab.gen.domain.agent.DecarbonizationModel;
 import emlab.gen.domain.agent.EnergyProducer;
-import emlab.gen.domain.agent.EnergyProducerConsideringRisk;
 import emlab.gen.domain.agent.Government;
 import emlab.gen.domain.agent.PowerPlantManufacturer;
 import emlab.gen.domain.agent.StrategicReserveOperator;
@@ -70,7 +70,7 @@ import emlab.gen.util.SimpleRegressionWithPredictionInterval;
 @Configurable
 @NodeEntity
 public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends EnergyProducer> extends
-        GenericInvestmentRole<T> implements Role<T>, NodeBacked {
+GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
     @Transient
     @Autowired
@@ -216,7 +216,7 @@ public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends En
 
             if ((expectedInstalledCapacityOfTechnology + plant.getActualNominalCapacity())
                     / (marketInformation.maxExpectedLoad + plant.getActualNominalCapacity()) > technology
-                        .getMaximumInstalledCapacityFractionInCountry()) {
+                    .getMaximumInstalledCapacityFractionInCountry()) {
                 // logger.warn(agent +
                 // " will not invest in {} technology because there's too much of this type in the market",
                 // technology);
@@ -477,7 +477,7 @@ public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends En
      * @return Map<Substance, Double> of predicted prices.
      */
     // TODO
-    public Map<Substance, Double> calculateVolatility(EnergyProducerConsideringRisk agent, long futureTimePoint) {
+    public Map<Substance, Double> calculateVolatility(AbstractEnergyProducerConsideringRiskScenarios agent, long futureTimePoint) {
         // Fuel Prices
         Map<Substance, Double> fuelVolatility = new HashMap<Substance, Double>();
         // TODO
@@ -697,7 +697,7 @@ public class InvestInPowerGenerationTechnologiesWithCO2ForecastRole<T extends En
         }
         ClearingPoint expectedCO2ClearingPoint = reps.clearingPointRepository.findClearingPointForMarketAndTime(
                 co2Auction, getCurrentTick()
-                        + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
+                + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
                 true);
         expectedCO2Price = (expectedCO2ClearingPoint == null) ? 0 : expectedCO2ClearingPoint.getPrice();
         expectedCO2Price = (expectedCO2Price + expectedRegressionCO2Price) / 2;
