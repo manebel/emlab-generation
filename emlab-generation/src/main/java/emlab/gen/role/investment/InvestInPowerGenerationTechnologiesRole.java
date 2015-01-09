@@ -188,9 +188,6 @@ implements Role<T>, NodeBacked {
         // + marketInformation.maxExpectedLoad, agent, market);
 
         // double highestValue = Double.MIN_VALUE;
-        // TODO hier nicht treemap so benutzten, besser hash map und eine
-        // Methode schreiben
-        // um beste Technologie zu finden
 
         Map<PowerGeneratingTechnology, Double> technologiesWithPositiveNPV = new HashMap<PowerGeneratingTechnology, Double>();
         PowerGeneratingTechnology bestTechnology = null;
@@ -251,9 +248,11 @@ implements Role<T>, NodeBacked {
             } else if ((capacityOfTechnologyInPipeline > 2.0 * operationalCapacityOfTechnology)
                     && capacityOfTechnologyInPipeline > 9000) { // TODO:
                 // reflects that you cannot expand a technology out of zero.
+                // if (debug){
                 // logger.warn(agent +
                 // " will not invest in {} technology because there's too much capacity in the pipeline",
                 // technology);
+                // }
             } else if (plant.getActualInvestedCapital() * (1 - agent.getDebtRatioOfInvestments()) > agent
                     .getDownpaymentFractionOfCash() * agent.getCash()) {
                 // logger.warn(agent +
@@ -327,14 +326,15 @@ implements Role<T>, NodeBacked {
                     TreeMap<Integer, Double> discountedProjectCashInflow = calculateSimplePowerPlantInvestmentCashFlow(
                             technology.getDepreciationTime(), (int) plant.getActualLeadtime(), 0, operatingProfit);
 
-                    double discountedCapitalCosts = npv(discountedProjectCapitalOutflow, wacc);// are
-                    // defined
-                    // negative!!
-                    // plant.getActualNominalCapacity();
+                    // !! are defined negative!!
+                    double discountedCapitalCosts = npv(discountedProjectCapitalOutflow, wacc);
+                    // !! are defined negative!!
 
+                    // if (debug) {
                     // logger.warn("Agent {}  found that the discounted capital for technology {} to be "
                     // + discountedCapitalCosts, agent,
                     // technology);
+                    // }
 
                     double discountedOpProfit = npv(discountedProjectCashInflow, wacc);
 
@@ -366,21 +366,31 @@ implements Role<T>, NodeBacked {
 
             }
         }
+
+        // sort all technologies with positive NPV. Technology with highest
+        // predicted NPV per MW will be at the end of
+        // sortedTechnologiesWithPositiveNPV
         MapValueComparator comp = new MapValueComparator(technologiesWithPositiveNPV);
         TreeMap<PowerGeneratingTechnology, Double> sortedTechnologiesWithPositiveNPV = new TreeMap<PowerGeneratingTechnology, Double>(
                 comp);
         sortedTechnologiesWithPositiveNPV.putAll(technologiesWithPositiveNPV);
-        // Now decide on possible investments including risk consideration
+
+        // If risk consideration decide on possible investments including risk
+        // consideration
         if (riskConsideration) {
             bestTechnology = decideOnInvestmentConsideringRisk(sortedTechnologiesWithPositiveNPV, marketInformation,
                     fuelPriceRegressions, co2PriceRegression, expectedDemandRegression, agent, futureTimePoint);
         } else {
+            // No consideration of risk, chose technology with highest predicted
+            // NPV
             if (sortedTechnologiesWithPositiveNPV.isEmpty()) {
                 bestTechnology = null;
             } else {
                 bestTechnology = sortedTechnologiesWithPositiveNPV.lastKey();
             }
         }
+
+        // undertake investment
         if (bestTechnology != null) {
             // logger.warn("Agent {} invested in technology {} at tick " +
             // getCurrentTick(), agent, bestTechnology);
@@ -412,8 +422,6 @@ implements Role<T>, NodeBacked {
             setNotWillingToInvest(agent);
         }
     }
-
-    // }
 
     // Creates n downpayments of equal size in each of the n building years of a
     // power plant
@@ -459,9 +467,71 @@ implements Role<T>, NodeBacked {
             // create all scenarios
             ArrayList<MarketInformation> scenarios = createScenarios(baseMarket, fuelPriceRegressions,
                     co2PriceRegression, expectedDemandRegression, riskAgentScenarios, futureTimePoint);
-            // TODO go through list of projects, for a project
-            // calculate npv in all scenarios and check if npvs in scenarios are
-            // satisfactory
+
+            while (!projects.isEmpty() && bestTechnology == null) {
+                // last key is highest key in tree map
+                bestTechnology = projects.lastKey();
+                // DEBUG!
+                if (debug) {
+                    logger.warn("Agent {} now evaluates risk of an investment in {}", riskAgentScenarios,
+                            bestTechnology);
+                }
+                for (MarketInformation mar : scenarios) {
+                    if (bestTechnology != null) {
+                        double npvInScenario;
+                        double relativeNPV;
+                        npvInScenario = calculateHypotheticalNPV(bestTechnology, mar, riskAgentScenarios,
+                                futureTimePoint);
+
+                        switch (riskAgentScenarios.getThresholdDefinition()) {
+                        // case 1: relatively against net worth of company
+                        case 1:
+                            if (riskAgentScenarios.getCash() != 0) {
+                                relativeNPV = npvInScenario / riskAgentScenarios.getCash();
+                            } else {
+                                if (npvInScenario >= 0) {
+                                    relativeNPV = Double.MAX_VALUE;
+                                } else {
+                                    relativeNPV = Double.MIN_VALUE;
+                                }
+                            }
+                            break;
+
+                            // case 2: absolute
+                        case 2:
+                            relativeNPV = npvInScenario;
+                            break;
+                        default:
+                            // default: Threshold is defined in absolute terms
+                            relativeNPV = npvInScenario;
+                            break;
+                        }
+                        // threshold is met
+                        if (relativeNPV >= riskAgentScenarios.getThreshold()) {
+                            // npv in this scenario is satisfactory
+                            // DEBUG!
+                            if (debug) {
+                                logger.warn(
+                                        "(Relative) NPV of {} in scenario " + mar.name
+                                        + " is sufficient for Agent {}. Threshold: "
+                                        + riskAgentScenarios.getThreshold() + ".", npvInScenario,
+                                        riskAgentScenarios);
+                            }
+                        }
+                        // threshold is not met
+                        else {
+                            bestTechnology = null;
+                            if (debug) {
+                                logger.warn(
+                                        "(Relative) NPV of {} in scenario " + mar.name
+                                        + " is not satisfactory for Agent {}. Threshold: "
+                                        + riskAgentScenarios.getThreshold() + ".", npvInScenario,
+                                        riskAgentScenarios);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Insert other implementations for riskAgents here
@@ -472,22 +542,103 @@ implements Role<T>, NodeBacked {
     /**
      * TODO
      *
-     * @param projects
-     * @param fuelPriceRegressions
-     * @param co2PriceRegression
-     * @param expectedDemandRegression
+     * @param technology
+     * @param marketInformation
      * @param agent
+     * @param futureTimePoint
      * @return
+     */
+    public double calculateHypotheticalNPV(PowerGeneratingTechnology technology, MarketInformation marketInformation,
+            EnergyProducer agent, Long futureTimePoint) {
+        // get fuel prices for specific plant
+        PowerPlant plant = new PowerPlant();
+        plant.specifyNotPersist(getCurrentTick(), agent, getNodeForZone(marketInformation.market.getZone()), technology);
+        Map<Substance, Double> myFuelPrices = new HashMap<Substance, Double>();
+        for (Substance fuel : technology.getFuels()) {
+            myFuelPrices.put(fuel, marketInformation.fuelPrices.get(fuel));
+        }
+        Set<SubstanceShareInFuelMix> fuelMix = calculateFuelMix(plant, myFuelPrices, marketInformation.co2price);
+        double expectedMarginalCost = determineExpectedMarginalCost(plant, marketInformation.fuelPrices,
+                marketInformation.co2price);
+        double runningHours = 0d;
+        double expectedGrossProfit = 0d;
+        long numberOfSegments = reps.segmentRepository.count();
+
+        for (SegmentLoad segmentLoad : marketInformation.market.getLoadDurationCurve()) {
+            double expectedElectricityPrice = marketInformation.expectedElectricityPricesPerSegment.get(segmentLoad
+                    .getSegment());
+            double hours = segmentLoad.getSegment().getLengthInHours();
+            if (expectedMarginalCost <= expectedElectricityPrice) {
+                expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost) * hours
+                        * plant.getAvailableCapacity(futureTimePoint, segmentLoad.getSegment(), numberOfSegments);
+            }
+        }
+        if (runningHours < plant.getTechnology().getMinimumRunningHours()) {
+            // logger.warn(agent+
+            // " will not invest in {} technology as he expect to have {} running, which is lower then required",
+            // technology, runningHours);
+            // TODO WHAT TO DO???????
+            expectedGrossProfit = 0;
+        }
+        double fixedOMCost = calculateFixedOperatingCost(plant, getCurrentTick());
+        double operatingProfit = expectedGrossProfit - fixedOMCost;
+        // Calculation of weighted average cost of capital,
+        // based on the companies debt-ratio
+        double wacc = (1 - agent.getDebtRatioOfInvestments()) * agent.getEquityInterestRate()
+                + agent.getDebtRatioOfInvestments() * agent.getLoanInterestRate();
+        // Creation of out cash-flow during power plant building
+        // phase (note that the cash-flow is negative!)
+        TreeMap<Integer, Double> discountedProjectCapitalOutflow = calculateSimplePowerPlantInvestmentCashFlow(
+                technology.getDepreciationTime(), (int) plant.getActualLeadtime(), plant.getActualInvestedCapital(), 0);
+
+        // Creation of in cashflow during operation
+        TreeMap<Integer, Double> discountedProjectCashInflow = calculateSimplePowerPlantInvestmentCashFlow(
+                technology.getDepreciationTime(), (int) plant.getActualLeadtime(), 0, operatingProfit);
+        ;
+
+        // !! are defined negative!!
+        double discountedCapitalCosts = npv(discountedProjectCapitalOutflow, wacc);
+
+        double discountedOpProfit = npv(discountedProjectCashInflow, wacc);
+
+        // add up since discountedCapitalCosts are defined negative
+        double projectValue = discountedOpProfit + discountedCapitalCosts;
+
+        // return absolute project value
+        return projectValue;
+
+    }
+
+    /**
+     * Method to create all scenarios for the risk assessment of an
+     * "EnergyProducerConsideringRiskScenariosSatisficer"
+     *
+     * @param baseMarket
+     *            MarketInformation with all predicted values (base scenario)
+     * @param fuelPriceRegressions
+     *            Map of regression objects for all fuel prices
+     * @param co2PriceRegression
+     *            regression object for the co2 price
+     * @param expectedDemandRegression
+     *            regression objects for the demand
+     * @param riskAgent
+     *            associated agent (must be of type
+     *            EnergyProducerConsideringRiskScenariosSatisficer)
+     * @param futureTimePoint
+     *            future time point for the calculation of npv.
+     * @return List with MarketInformation object, for each scenario one
+     *         MarketInformation object
      */
     public ArrayList<MarketInformation> createScenarios(MarketInformation baseMarket,
             Map<Substance, ? extends SimpleRegressionWithPredictionInterval> fuelPriceRegressions,
             SimpleRegressionWithPredictionInterval co2PriceRegression,
             Map<ElectricitySpotMarket, ? extends SimpleRegressionWithPredictionInterval> expectedDemandRegression,
             EnergyProducerConsideringRiskScenariosSatisficer riskAgent, long futureTimePoint) {
-        ArrayList<MarketInformation> result = new ArrayList<MarketInformation>();
 
+        ArrayList<MarketInformation> result = new ArrayList<MarketInformation>();
+        // Get data
         Map<Substance, Double> fuelIntervals = getSubstancesPriceRiskConfidenceLevels(riskAgent);
-        // Check for all fuel prices, if a new scenario should be created
+        // Check for all FUEL PRICES, if a new scenario should be created
         for (Map.Entry<Substance, ? extends SimpleRegressionWithPredictionInterval> e : fuelPriceRegressions.entrySet()) {
 
             // if fuel is to be included in the risk assessment, create two
@@ -504,7 +655,7 @@ implements Role<T>, NodeBacked {
                 }
             }
 
-            // create scenarios with different electricity demand on own market
+            // create scenarios with different electricity DEMAND on own market
             // neglect risk consideration of markets in other zones
             if (riskAgent.isDemandRiskIncluded()) {
                 ElectricitySpotMarket ownMarket = riskAgent.getInvestorMarket();
@@ -521,7 +672,6 @@ implements Role<T>, NodeBacked {
                         tmp.put(ownMarket, minAndMaxDemand[0]);
                         result.add(new MarketInformation(baseMarket.market, tmp, baseMarket.fuelPrices,
                                 baseMarket.co2price, baseMarket.time));
-
                         // create second scenario (max)
                         tmp.remove(ownMarket);
                         tmp.put(ownMarket, minAndMaxDemand[1]);
@@ -537,7 +687,7 @@ implements Role<T>, NodeBacked {
                 }
             }
 
-            // create scenarios with different co2 prices
+            // create scenarios with different CO2 PRICES
             if (riskAgent.isCo2PriceRiskIncluded()) {
                 double[] minAndMaxCO2Price = new double[2];
                 minAndMaxCO2Price = co2PriceRegression.getPredictionInterval(futureTimePoint,
@@ -557,22 +707,28 @@ implements Role<T>, NodeBacked {
                                 + ". Max CO2 price: " + minAndMaxCO2Price[1]);
                     }
                 }
-
             }
         }
         return result;
-
     }
 
     /**
-     * TODO
+     * Method to create scenarios by altering prices of a specific fuel,
+     * according to the prediction interval of the associated regression
      *
      * @param baseMarket
+     *            MarketInformation with all predicted values (base scenario)
      * @param substance
+     *            Substance, that prices have to be changed
      * @param priceRegression
+     *            Map of regression objects for all fuel prices
      * @param confidenceLevel
+     *            Level of confidence for the prediction interval
      * @param futureTimePoint
-     * @return
+     *            Future time point for the calculation of the prediction
+     *            interval
+     * @return ArrayList of two MarketInformation (for each scenarion (min &
+     *         max) one object)
      */
     private ArrayList<MarketInformation> alterFuelPriceInMarketInformation(MarketInformation baseMarket,
             Substance substance, SimpleRegressionWithPredictionInterval priceRegression, double confidenceLevel,
@@ -594,7 +750,8 @@ implements Role<T>, NodeBacked {
             // keep everything as in base scenario, only change
             // fuelprice Map
             result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand, tmpPrices,
-                    baseMarket.co2price, baseMarket.time));
+                    baseMarket.co2price, baseMarket.time, "Risk scenarion with high price for " + substance.getName()
+                            + ". Price is "));
             // add second scenario (max) (put will overwrite old entry)
             tmpPrices.put(substance, minAndMaxPrice[1]);
             result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand, tmpPrices,
@@ -849,15 +1006,22 @@ implements Role<T>, NodeBacked {
         double co2price;
         ElectricitySpotMarket market;
         long time;
+        String name;
 
         MarketInformation(ElectricitySpotMarket market, Map<ElectricitySpotMarket, Double> expectedDemand,
                 Map<Substance, Double> fuelPrices, double co2price, long time) {
+            this(market, expectedDemand, fuelPrices, co2price, time, "");
+        }
+
+        MarketInformation(ElectricitySpotMarket market, Map<ElectricitySpotMarket, Double> expectedDemand,
+                Map<Substance, Double> fuelPrices, double co2price, long time, String name) {
             // determine expected power prices
             this.expectedDemand = expectedDemand;
             this.fuelPrices = fuelPrices;
             this.co2price = co2price;
             this.market = market;
             this.time = time;
+            this.name = name;
 
             expectedElectricityPricesPerSegment = new HashMap<Segment, Double>();
             Map<PowerPlant, Double> marginalCostMap = new HashMap<PowerPlant, Double>();

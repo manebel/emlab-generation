@@ -42,9 +42,6 @@ public class EnergyProducer extends DecarbonizationAgent implements Agent {
     @SimulationParameter(label = "Long-term contract horizon", from = 0, to = 10)
     private double longTermContractPastTimeHorizon;
 
-    @SimulationParameter(label = "This is to test if ints have from to", from = 0, to = 1)
-    private int tmp;
-
     // Investment
     @SimulationParameter(label = "Investment horizon", from = 0, to = 15)
     private int investmentFutureTimeHorizon;
@@ -66,14 +63,6 @@ public class EnergyProducer extends DecarbonizationAgent implements Agent {
     private int dismantlingProlongingYearsAfterTechnicalLifetime;
     private double dismantlingRequiredOperatingProfit;
     private long pastTimeHorizon;
-
-    public int getTmp() {
-        return tmp;
-    }
-
-    public void setTmp(int a) {
-        tmp = a;
-    }
 
     public boolean isWillingToInvest() {
         return willingToInvest;
