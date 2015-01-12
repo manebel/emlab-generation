@@ -71,7 +71,7 @@ import emlab.gen.util.SimpleRegressionWithPredictionInterval;
  */
 @Configurable
 @NodeEntity
-public class InvestInPowerGenerationTechnologiesRole<T extends EnergyProducer> extends GenericInvestmentRole<T>
+public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends EnergyProducer> extends GenericInvestmentRole<T>
 implements Role<T>, NodeBacked {
 
     @Transient
