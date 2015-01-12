@@ -17,8 +17,10 @@ package emlab.gen.role.investment;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -173,15 +175,16 @@ implements Role<T>, NodeBacked {
         MarketInformation marketInformation = new MarketInformation(market, expectedDemand, expectedFuelPrices,
                 expectedCO2Price.get(market).doubleValue(), futureTimePoint);
 
-        // if (debug){
+        // if (debug) {
         // logger.warn(agent + " is expecting a CO2 price of " +
-        // expectedCO2Price.get(market) + " Euro/MWh at timepoint "
-        // + futureTimePoint + " in Market " + market);
+        // expectedCO2Price.get(market)
+        // + " Euro/MWh at timepoint " + futureTimePoint + " in Market " +
+        // market);
         // }
 
         // logger.warn("Agent {}  found the expected prices to be {}", agent,
         // marketInformation.expectedElectricityPricesPerSegment);
-
+        //
         // logger.warn("Agent {}  found that the installed capacity in the market {} in future to be "
         // + marketInformation.capacitySum +
         // "and expectde maximum demand to be "
@@ -232,32 +235,32 @@ implements Role<T>, NodeBacked {
             if ((expectedInstalledCapacityOfTechnology + plant.getActualNominalCapacity())
                     / (marketInformation.maxExpectedLoad + plant.getActualNominalCapacity()) > technology
                         .getMaximumInstalledCapacityFractionInCountry()) {
-                // logger.warn(agent +
-                // " will not invest in {} technology because there's too much of this type in the market",
-                // technology);
+                logger.warn(agent
+                        + " will not invest in {} technology because there's too much of this type in the market",
+                        technology);
             } else if ((expectedInstalledCapacityOfTechnologyInNode + plant.getActualNominalCapacity()) > pgtNodeLimit) {
 
             } else if (expectedOwnedCapacityInMarketOfThisTechnology > expectedOwnedTotalCapacityInMarket
                     * technology.getMaximumInstalledCapacityFractionPerAgent()) {
-                // logger.warn(agent +
-                // " will not invest in {} technology because there's too much capacity planned by him",
-                // technology);
+                logger.warn(agent
+                        + " will not invest in {} technology because there's too much capacity planned by him",
+                        technology);
             } else if (capacityInPipelineInMarket > 0.2 * marketInformation.maxExpectedLoad) {
-                // logger.warn("Not investing because more than 20% of demand in pipeline.");
+                logger.warn("Not investing because more than 20% of demand in pipeline.");
 
             } else if ((capacityOfTechnologyInPipeline > 2.0 * operationalCapacityOfTechnology)
                     && capacityOfTechnologyInPipeline > 9000) { // TODO:
                 // reflects that you cannot expand a technology out of zero.
-                // if (debug){
-                // logger.warn(agent +
-                // " will not invest in {} technology because there's too much capacity in the pipeline",
-                // technology);
-                // }
+                if (debug) {
+                    logger.warn(agent
+                            + " will not invest in {} technology because there's too much capacity in the pipeline",
+                            technology);
+                }
             } else if (plant.getActualInvestedCapital() * (1 - agent.getDebtRatioOfInvestments()) > agent
                     .getDownpaymentFractionOfCash() * agent.getCash()) {
-                // logger.warn(agent +
-                // " will not invest in {} technology as he does not have enough money for downpayment",
-                // technology);
+                logger.warn(agent
+                        + " will not invest in {} technology as he does not have enough money for downpayment",
+                        technology);
             } else {
 
                 Map<Substance, Double> myFuelPrices = new HashMap<Substance, Double>();
@@ -291,14 +294,13 @@ implements Role<T>, NodeBacked {
                     }
                 }
 
-                // logger.warn(agent +
-                // "expects technology {} to have {} running", technology,
-                // runningHours);
+                logger.warn(agent + "expects technology {} to have {} running", technology, runningHours);
                 // expect to meet minimum running hours?
                 if (runningHours < plant.getTechnology().getMinimumRunningHours()) {
-                    // logger.warn(agent+
-                    // " will not invest in {} technology as he expect to have {} running, which is lower then required",
-                    // technology, runningHours);
+                    logger.warn(
+                            agent
+                                    + " will not invest in {} technology as he expect to have {} running, which is lower then required",
+                            technology, runningHours);
                 } else {
 
                     double fixedOMCost = calculateFixedOperatingCost(plant, getCurrentTick());// /
@@ -332,26 +334,22 @@ implements Role<T>, NodeBacked {
 
                     // if (debug) {
                     // logger.warn("Agent {}  found that the discounted capital for technology {} to be "
-                    // + discountedCapitalCosts, agent,
-                    // technology);
+                    // + discountedCapitalCosts, agent, technology);
                     // }
 
                     double discountedOpProfit = npv(discountedProjectCashInflow, wacc);
 
                     // logger.warn("Agent {}  found that the projected discounted inflows for technology {} to be "
-                    // + discountedOpProfit,
-                    // agent, technology);
+                    // + discountedOpProfit, agent, technology);
 
                     double projectValue = discountedOpProfit + discountedCapitalCosts;
 
-                    // if (debug) {
-                    // logger.warn(
-                    // "Agent {}  found the project value for technology {} to be "
-                    // + Math.round(projectValue /
-                    // plant.getActualNominalCapacity())
-                    // + " EUR/kW (running hours: " + runningHours + "", agent,
-                    // technology);
-                    // }
+                    if (debug) {
+                        logger.warn(
+                                "Agent {}  found the project value for technology {} to be "
+                                        + Math.round(projectValue / plant.getActualNominalCapacity())
+                                        + " EUR/kW (running hours: " + runningHours + "", agent, technology);
+                    }
 
                     // Store all projects with positive project values in a map
                     // (technologiesWithPositiveNPV)
@@ -377,9 +375,10 @@ implements Role<T>, NodeBacked {
 
         // If risk consideration decide on possible investments including risk
         // consideration
-        if (riskConsideration) {
+        if (riskConsideration && agent instanceof AbstractEnergyProducerConsideringRiskScenarios) {
+            AbstractEnergyProducerConsideringRiskScenarios riskAgent = (AbstractEnergyProducerConsideringRiskScenarios) agent;
             bestTechnology = decideOnInvestmentConsideringRisk(sortedTechnologiesWithPositiveNPV, marketInformation,
-                    fuelPriceRegressions, co2PriceRegression, expectedDemandRegression, agent, futureTimePoint);
+                    fuelPriceRegressions, co2PriceRegression, expectedDemandRegression, riskAgent, futureTimePoint);
         } else {
             // No consideration of risk, chose technology with highest predicted
             // NPV
@@ -392,8 +391,7 @@ implements Role<T>, NodeBacked {
 
         // undertake investment
         if (bestTechnology != null) {
-            // logger.warn("Agent {} invested in technology {} at tick " +
-            // getCurrentTick(), agent, bestTechnology);
+            logger.warn("Agent {} invested in technology {} at tick " + getCurrentTick(), agent, bestTechnology);
 
             PowerPlant plant = new PowerPlant();
             plant.specifyAndPersist(getCurrentTick(), agent, getNodeForZone(market.getZone()), bestTechnology);
@@ -455,12 +453,11 @@ implements Role<T>, NodeBacked {
             Map<Substance, ? extends SimpleRegressionWithPredictionInterval> fuelPriceRegressions,
             SimpleRegressionWithPredictionInterval co2PriceRegression,
             Map<ElectricitySpotMarket, ? extends SimpleRegressionWithPredictionInterval> expectedDemandRegression,
-            EnergyProducer agent, long futureTimePoint) {
+            AbstractEnergyProducerConsideringRiskScenarios riskAgent, long futureTimePoint) {
         if (projects.isEmpty()) {
             return null;
         }
         PowerGeneratingTechnology bestTechnology = null;
-        AbstractEnergyProducerConsideringRiskScenarios riskAgent = (AbstractEnergyProducerConsideringRiskScenarios) agent;
         // If agent is a satisficer over different scenarios
         if (riskAgent instanceof EnergyProducerConsideringRiskScenariosSatisficer) {
             EnergyProducerConsideringRiskScenariosSatisficer riskAgentScenarios = (EnergyProducerConsideringRiskScenariosSatisficer) riskAgent;
@@ -468,9 +465,11 @@ implements Role<T>, NodeBacked {
             ArrayList<MarketInformation> scenarios = createScenarios(baseMarket, fuelPriceRegressions,
                     co2PriceRegression, expectedDemandRegression, riskAgentScenarios, futureTimePoint);
 
-            while (!projects.isEmpty() && bestTechnology == null) {
+            NavigableSet<PowerGeneratingTechnology> keySet = projects.descendingKeySet();
+            Iterator<PowerGeneratingTechnology> iterator = keySet.iterator();
+            while (bestTechnology == null && iterator.hasNext()) {
                 // last key is highest key in tree map
-                bestTechnology = projects.lastKey();
+                bestTechnology = iterator.next();
                 // DEBUG!
                 if (debug) {
                     logger.warn("Agent {} now evaluates risk of an investment in {}", riskAgentScenarios,
@@ -520,7 +519,6 @@ implements Role<T>, NodeBacked {
                         }
                         // threshold is not met
                         else {
-                            bestTechnology = null;
                             if (debug) {
                                 logger.warn(
                                         "(Relative) NPV of {} in scenario " + mar.name
@@ -528,6 +526,8 @@ implements Role<T>, NodeBacked {
                                         + riskAgentScenarios.getThreshold() + ".", npvInScenario,
                                         riskAgentScenarios);
                             }
+                            bestTechnology = null;
+
                         }
                     }
                 }
@@ -654,37 +654,38 @@ implements Role<T>, NodeBacked {
                     }
                 }
             }
+        }
 
-            // create scenarios with different electricity DEMAND on own market
-            // neglect risk consideration of markets in other zones
-            if (riskAgent.isDemandRiskIncluded()) {
-                ElectricitySpotMarket ownMarket = riskAgent.getInvestorMarket();
-                if (expectedDemandRegression.containsKey(ownMarket)) {
-                    double[] minAndMaxDemand = new double[2];
-                    minAndMaxDemand = expectedDemandRegression.get(ownMarket).getPredictionInterval(futureTimePoint,
-                            riskAgent.getDemandConfidenceLevel());
-                    // if everything worked out (i.e. n >= 3)
-                    if (!(Double.isNaN(minAndMaxDemand[0]) || Double.isNaN(minAndMaxDemand[1]))) {
-                        Map<ElectricitySpotMarket, Double> tmp = new HashMap<ElectricitySpotMarket, Double>();
-                        tmp.putAll(baseMarket.expectedDemand);
-                        // create first scenario (min)
-                        tmp.remove(ownMarket);
-                        tmp.put(ownMarket, minAndMaxDemand[0]);
-                        result.add(new MarketInformation(baseMarket.market, tmp, baseMarket.fuelPrices,
-                                baseMarket.co2price, baseMarket.time));
-                        // create second scenario (max)
-                        tmp.remove(ownMarket);
-                        tmp.put(ownMarket, minAndMaxDemand[1]);
-                        result.add(new MarketInformation(baseMarket.market, tmp, baseMarket.fuelPrices,
-                                baseMarket.co2price, baseMarket.time));
-                        // DEBUG!
-                        if (debug) {
-                            logger.warn("added two scenarios with different demand (normal forecasted value was: "
-                                    + baseMarket.expectedDemand.get(ownMarket).toString() + "). MinDemand: "
-                                    + minAndMaxDemand[0] + ". MaxDemand: " + minAndMaxDemand[1]);
-                        }
+        // create scenarios with different electricity DEMAND on own market
+        // neglect risk consideration of markets in other zones
+        if (riskAgent.isDemandRiskIncluded()) {
+            ElectricitySpotMarket ownMarket = riskAgent.getInvestorMarket();
+            if (expectedDemandRegression.containsKey(ownMarket)) {
+                double[] minAndMaxDemand = new double[2];
+                minAndMaxDemand = expectedDemandRegression.get(ownMarket).getPredictionInterval(futureTimePoint,
+                        riskAgent.getDemandConfidenceLevel());
+                // if everything worked out (i.e. n >= 3)
+                if (!(Double.isNaN(minAndMaxDemand[0]) || Double.isNaN(minAndMaxDemand[1]))) {
+                    Map<ElectricitySpotMarket, Double> tmp = new HashMap<ElectricitySpotMarket, Double>();
+                    tmp.putAll(baseMarket.expectedDemand);
+                    // create first scenario (min)
+                    tmp.remove(ownMarket);
+                    tmp.put(ownMarket, minAndMaxDemand[0]);
+                    result.add(new MarketInformation(baseMarket.market, tmp, baseMarket.fuelPrices,
+                            baseMarket.co2price, baseMarket.time, "Low Demand"));
+                    // create second scenario (max)
+                    tmp.remove(ownMarket);
+                    tmp.put(ownMarket, minAndMaxDemand[1]);
+                    result.add(new MarketInformation(baseMarket.market, tmp, baseMarket.fuelPrices,
+                            baseMarket.co2price, baseMarket.time, "High Demand"));
+                    // DEBUG!
+                    if (debug) {
+                        logger.warn("added two scenarios with different demand (normal forecasted value was: "
+                                + baseMarket.expectedDemand.get(ownMarket).toString() + "). MinDemand: "
+                                + minAndMaxDemand[0] + ". MaxDemand: " + minAndMaxDemand[1]);
                     }
                 }
+
             }
 
             // create scenarios with different CO2 PRICES
@@ -696,10 +697,10 @@ implements Role<T>, NodeBacked {
                 if (!(Double.isNaN(minAndMaxCO2Price[0]) || Double.isNaN(minAndMaxCO2Price[1]))) {
                     // add first scenario
                     result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand,
-                            baseMarket.fuelPrices, minAndMaxCO2Price[0], baseMarket.time));
+                            baseMarket.fuelPrices, minAndMaxCO2Price[0], baseMarket.time, "Low CO2 Price"));
                     // add second scenario
                     result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand,
-                            baseMarket.fuelPrices, minAndMaxCO2Price[1], baseMarket.time));
+                            baseMarket.fuelPrices, minAndMaxCO2Price[1], baseMarket.time, "High CO2 Price"));
                     // DEBUG!
                     if (debug) {
                         logger.warn("added two scenarios with different CO2 prices (normal forecasted value was: "
@@ -750,12 +751,11 @@ implements Role<T>, NodeBacked {
             // keep everything as in base scenario, only change
             // fuelprice Map
             result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand, tmpPrices,
-                    baseMarket.co2price, baseMarket.time, "Risk scenarion with high price for " + substance.getName()
-                            + ". Price is "));
+                    baseMarket.co2price, baseMarket.time, "Low price for " + substance.getName()));
             // add second scenario (max) (put will overwrite old entry)
             tmpPrices.put(substance, minAndMaxPrice[1]);
             result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand, tmpPrices,
-                    baseMarket.co2price, baseMarket.time));
+                    baseMarket.co2price, baseMarket.time, "High price for " + substance.getName()));
             // DEBUG!
             if (debug) {
                 logger.warn("created two scenarios with different prices of " + substance.getName()
