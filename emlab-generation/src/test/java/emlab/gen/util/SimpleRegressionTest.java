@@ -16,18 +16,11 @@
 package emlab.gen.util;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.NavigableSet;
-import java.util.TreeMap;
 
 import org.apache.commons.math.MathException;
 import org.apache.commons.math.distribution.TDistributionImpl;
 import org.apache.commons.math.stat.regression.SimpleRegression;
-
-import emlab.gen.util.GeometricTrendRegressionWithPredictionInterval;
-import emlab.gen.util.MapValueComparator;
-import emlab.gen.util.SimpleRegressionWithPredictionInterval;
 
 /**
  * @author manebel
@@ -117,31 +110,6 @@ public class SimpleRegressionTest {
         Map<String, SimpleRegressionWithPredictionInterval> fuelRegressions = predictFuelPrices();
         for (Map.Entry<String, SimpleRegressionWithPredictionInterval> e : fuelRegressions.entrySet()) {
             System.out.print(e.getKey() + ": " + e.getValue().predict(futureTimePoint) + " ");
-        }
-        System.out.println("\nMAPTEST:");
-
-        Map<String, Double> testMap = new HashMap<String, Double>();
-        testMap.put("ZZZ", 1.1);
-        testMap.put("MMM", 3.4);
-        testMap.put("AAA", 2.);
-
-        MapValueComparator comp = new MapValueComparator(testMap);
-        TreeMap<String, Double> sortedTestMap = new TreeMap<String, Double>(comp);
-        sortedTestMap.putAll(testMap);
-
-        System.out.println("letzter Eintrag: " + sortedTestMap.lastKey() + ", " + sortedTestMap.lastEntry().getValue()
-                + ". Erster Eintrag: " + sortedTestMap.firstEntry().getKey() + ", "
-                + sortedTestMap.firstEntry().getValue());
-        sortedTestMap.remove(sortedTestMap.lastKey());
-        System.out.println(sortedTestMap);
-        System.out.println("Removed last key. New last key: " + sortedTestMap.lastKey() + ", "
-                + sortedTestMap.lastEntry().getValue());
-        System.out.println("Now creating a descending tree set");
-        NavigableSet<String> keySet = sortedTestMap.descendingKeySet();
-        Iterator<String> i = keySet.iterator();
-        while (i.hasNext()) {
-            String output = i.next();
-            System.out.println(output);
         }
 
     }
