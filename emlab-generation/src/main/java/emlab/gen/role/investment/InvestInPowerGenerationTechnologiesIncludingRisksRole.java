@@ -77,7 +77,7 @@ import emlab.gen.util.SimpleRegressionWithPredictionInterval;
 @Configurable
 @NodeEntity
 public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends EnergyProducer> extends
-GenericInvestmentRole<T> implements Role<T>, NodeBacked {
+        GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
     @Transient
     @Autowired
@@ -275,7 +275,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
                 if ((expectedInstalledCapacityOfTechnology + plant.getActualNominalCapacity())
                         / (marketInformation.maxExpectedLoad + plant.getActualNominalCapacity()) > technology
-                        .getMaximumInstalledCapacityFractionInCountry()) {
+                            .getMaximumInstalledCapacityFractionInCountry()) {
                     // logger.warn(agent +
                     // " will not invest in {} technology because there's too much of this type in the market",
                     // technology);
@@ -568,7 +568,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                             }
                             break;
 
-                            // case 2: absolute
+                        // case 2: absolute
                         case 2:
                             relativeNPV = npvInScenario;
                             break;
@@ -584,8 +584,8 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                             if (debug) {
                                 logger.warn(
                                         "(Relative) NPV of {} in scenario " + mar.name
-                                        + " is sufficient for Agent {}. Threshold: "
-                                        + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
+                                                + " is sufficient for Agent {}. Threshold: "
+                                                + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
                                         riskAgentScenarios);
                                 // logger.warn("Fuel prices are: " +
                                 // mar.fuelPrices.toString());
@@ -596,8 +596,8 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                             if (debug) {
                                 logger.warn(
                                         "(Relative) NPV of {} in scenario " + mar.name
-                                        + " is not satisfactory for Agent {}. Threshold: "
-                                        + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
+                                                + " is not satisfactory for Agent {}. Threshold: "
+                                                + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
                                         riskAgentScenarios);
                                 // logger.warn("Fuel prices are: " +
                                 // mar.fuelPrices.toString());
@@ -675,14 +675,14 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                 runningHours += hours;
                 if (technology.isIntermittent())
                     expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost)
-                    * hours
-                    * plant.getActualNominalCapacity()
-                    * reps.intermittentTechnologyNodeLoadFactorRepository
-                    .findIntermittentTechnologyNodeLoadFactorForNodeAndTechnology(node, technology)
-                    .getLoadFactorForSegment(segmentLoad.getSegment());
+                            * hours
+                            * plant.getActualNominalCapacity()
+                            * reps.intermittentTechnologyNodeLoadFactorRepository
+                                    .findIntermittentTechnologyNodeLoadFactorForNodeAndTechnology(node, technology)
+                                    .getLoadFactorForSegment(segmentLoad.getSegment());
                 else
                     expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost) * hours
-                    * plant.getAvailableCapacity(futureTimePoint, segmentLoad.getSegment(), numberOfSegments);
+                            * plant.getAvailableCapacity(futureTimePoint, segmentLoad.getSegment(), numberOfSegments);
             }
         }
 
@@ -730,7 +730,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                     "Hypothetical expected marginal costs:" + Math.round(expectedMarginalCost) + "\nFixed OM cost: "
                             + Math.round(fixedOMCost) + "\nGrossProfits: " + Math.round(expectedGrossProfit)
                             + "\nDiscountedCapitalCosts: " + Math.round(discountedCapitalCosts),
-                    "\nDiscountedOpProfit: " + Math.round(discountedOpProfit));
+                            "\nDiscountedOpProfit: " + Math.round(discountedOpProfit));
         }
         // add up since discountedCapitalCosts are defined negative
         double projectValue = discountedOpProfit + discountedCapitalCosts;
@@ -842,7 +842,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                     if (debug) {
                         logger.warn("added two scenarios with different CO2 prices (normal forecasted value was: "
                                 + baseMarket.co2price + "). Min CO2 price: " + minAndMaxCO2Price[0]
-                                + ". Max CO2 price: " + minAndMaxCO2Price[1]);
+                                        + ". Max CO2 price: " + minAndMaxCO2Price[1]);
                     }
                 }
             }
@@ -865,8 +865,8 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
      * @param futureTimePoint
      *            Future time point for the calculation of the prediction
      *            interval
-     * @return ArrayList of two MarketInformation (for each scenarion (min &
-     *         max) one object)
+     * @return ArrayList of two MarketInformation (for each scenario (min & max)
+     *         one object)
      */
     private ArrayList<MarketInformation> alterFuelPriceInMarketInformation(MarketInformation baseMarket,
             Substance substance, SimpleRegressionWithPredictionInterval priceRegression, double confidenceLevel,
@@ -1086,7 +1086,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
         ClearingPoint expectedCO2ClearingPoint = reps.clearingPointRepository.findClearingPointForMarketAndTime(
                 co2Auction, getCurrentTick()
-                + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
+                        + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
                 true);
         expectedCO2Price = (expectedCO2ClearingPoint == null) ? 0 : expectedCO2ClearingPoint.getPrice();
         expectedCO2Price = (expectedCO2Price + expectedRegressionCO2Price) / 2;
