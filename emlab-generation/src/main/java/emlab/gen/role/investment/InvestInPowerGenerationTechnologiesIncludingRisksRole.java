@@ -47,7 +47,6 @@ import emlab.gen.domain.agent.StrategicReserveOperator;
 import emlab.gen.domain.agent.TargetInvestor;
 import emlab.gen.domain.contract.CashFlow;
 import emlab.gen.domain.contract.Loan;
-import emlab.gen.domain.gis.Zone;
 import emlab.gen.domain.market.CO2Auction;
 import emlab.gen.domain.market.ClearingPoint;
 import emlab.gen.domain.market.electricity.ElectricitySpotMarket;
@@ -78,7 +77,7 @@ import emlab.gen.util.SimpleRegressionWithPredictionInterval;
 @Configurable
 @NodeEntity
 public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends EnergyProducer> extends
-        GenericInvestmentRole<T> implements Role<T>, NodeBacked {
+GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
     @Transient
     @Autowired
@@ -96,10 +95,11 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
     @Transient
     Map<ElectricitySpotMarket, MarketInformation> marketInfoMap = new HashMap<ElectricitySpotMarket, MarketInformation>();
     boolean debug = true;
+    boolean riskConsideration = true; // TODO - do we need this?
 
     @Override
     public void act(T agent) {
-        boolean riskConsideration = true; // TODO?
+
         // DEBUG!
 
         long futureTimePoint = getCurrentTick() + agent.getInvestmentFutureTimeHorizon();
@@ -132,10 +132,16 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
 
         SimpleRegressionWithPredictionInterval co2PriceRegression = createSimpleCO2PriceRegression(agent,
                 getCurrentTick());
-        Map<ElectricitySpotMarket, Double> expectedCO2Price = determineExpectedCO2PriceInclTax(co2PriceRegression,
-                futureTimePoint);
+        // Map<ElectricitySpotMarket, Double> expectedCO2PriceNonFundamental =
+        // determineExpectedCO2PriceInclTax(
+        // co2PriceRegression, futureTimePoint);
         Map<ElectricitySpotMarket, Double> expectedCO2PriceFundamental = determineExpectedCO2PriceInclTaxAndFundamentalForecast(
                 co2PriceRegression, futureTimePoint);
+
+        // Fundamental Forecast or not
+        // Map<ElectricitySpotMarket, Double> expectedCO2Price =
+        // expectedCO2PriceNonFundamental;
+        Map<ElectricitySpotMarket, Double> expectedCO2Price = expectedCO2PriceFundamental;
 
         // DEBUG!
         // if (debug) {
@@ -269,7 +275,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
 
                 if ((expectedInstalledCapacityOfTechnology + plant.getActualNominalCapacity())
                         / (marketInformation.maxExpectedLoad + plant.getActualNominalCapacity()) > technology
-                            .getMaximumInstalledCapacityFractionInCountry()) {
+                        .getMaximumInstalledCapacityFractionInCountry()) {
                     // logger.warn(agent +
                     // " will not invest in {} technology because there's too much of this type in the market",
                     // technology);
@@ -388,7 +394,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                             logger.warn(
                                     "Agent {}  found the project value for technology {} to be "
                                             + Math.round(projectValue / plant.getActualNominalCapacity())
-                                            + " EUR/kW (running hours: " + runningHours + "", agent, technology);
+                                            + " EUR/kW (running hours: " + runningHours + ").", agent, technology);
                         }
 
                         // Store all projects with positive project values in a
@@ -440,8 +446,9 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
         // consideration
         if (riskConsideration && agent instanceof AbstractEnergyProducerConsideringRiskScenarios) {
             AbstractEnergyProducerConsideringRiskScenarios riskAgent = (AbstractEnergyProducerConsideringRiskScenarios) agent;
-            bestTechnology = decideOnInvestmentConsideringRisk(sortedTechnologiesWithPositiveNPV, marketInformation,
-                    fuelPriceRegressions, co2PriceRegression, expectedDemandRegression, riskAgent, futureTimePoint);
+            bestTechnology = decideOnInvestmentConsideringRisk(sortedTechnologiesWithPositiveNPV, bestNodes,
+                    marketInformation, fuelPriceRegressions, co2PriceRegression, expectedDemandRegression, riskAgent,
+                    futureTimePoint);
         } else {
             // No consideration of risk, chose technology with highest predicted
             // NPV
@@ -454,8 +461,9 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
 
         // undertake investment
         if (bestTechnology != null) {
-            logger.warn("Agent {} invested in technology {} at tick " + getCurrentTick(), agent, bestTechnology);
-
+            if (debug) {
+                logger.warn("Agent {} invested in technology {} at tick " + getCurrentTick(), agent, bestTechnology);
+            }
             PowerPlant plant = new PowerPlant();
             plant.specifyAndPersist(getCurrentTick(), agent, bestNodes.get(bestTechnology), bestTechnology);
             PowerPlantManufacturer manufacturer = reps.genericRepository.findFirst(PowerPlantManufacturer.class);
@@ -512,7 +520,8 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
      * @return
      */
     public PowerGeneratingTechnology decideOnInvestmentConsideringRisk(
-            TreeMap<PowerGeneratingTechnology, Double> projects, MarketInformation baseMarket,
+            TreeMap<PowerGeneratingTechnology, Double> projects, Map<PowerGeneratingTechnology, PowerGridNode> nodes,
+            MarketInformation baseMarket,
             Map<Substance, ? extends SimpleRegressionWithPredictionInterval> fuelPriceRegressions,
             SimpleRegressionWithPredictionInterval co2PriceRegression,
             Map<ElectricitySpotMarket, ? extends SimpleRegressionWithPredictionInterval> expectedDemandRegression,
@@ -542,8 +551,8 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                     if (bestTechnology != null) {
                         double npvInScenario;
                         double relativeNPV;
-                        npvInScenario = calculateHypotheticalNPV(bestTechnology, mar, riskAgentScenarios,
-                                futureTimePoint);
+                        npvInScenario = calculateHypotheticalNPV(bestTechnology, nodes.get(bestTechnology), mar,
+                                riskAgentScenarios, futureTimePoint);
 
                         switch (riskAgentScenarios.getThresholdDefinition()) {
                         // case 1: relatively against net worth of company
@@ -559,7 +568,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                             }
                             break;
 
-                        // case 2: absolute
+                            // case 2: absolute
                         case 2:
                             relativeNPV = npvInScenario;
                             break;
@@ -575,9 +584,11 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                             if (debug) {
                                 logger.warn(
                                         "(Relative) NPV of {} in scenario " + mar.name
-                                                + " is sufficient for Agent {}. Threshold: "
-                                                + riskAgentScenarios.getThreshold() + ".", npvInScenario,
+                                        + " is sufficient for Agent {}. Threshold: "
+                                        + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
                                         riskAgentScenarios);
+                                // logger.warn("Fuel prices are: " +
+                                // mar.fuelPrices.toString());
                             }
                         }
                         // threshold is not met
@@ -585,9 +596,11 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                             if (debug) {
                                 logger.warn(
                                         "(Relative) NPV of {} in scenario " + mar.name
-                                                + " is not satisfactory for Agent {}. Threshold: "
-                                                + riskAgentScenarios.getThreshold() + ".", npvInScenario,
+                                        + " is not satisfactory for Agent {}. Threshold: "
+                                        + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
                                         riskAgentScenarios);
+                                // logger.warn("Fuel prices are: " +
+                                // mar.fuelPrices.toString());
                             }
                             bestTechnology = null;
 
@@ -611,40 +624,88 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
      * @param futureTimePoint
      * @return
      */
-    public double calculateHypotheticalNPV(PowerGeneratingTechnology technology, MarketInformation marketInformation,
-            EnergyProducer agent, Long futureTimePoint) {
+    public double calculateHypotheticalNPV(PowerGeneratingTechnology technology, PowerGridNode node,
+            MarketInformation marketInformation, EnergyProducer agent, Long futureTimePoint) {
         // get fuel prices for specific plant
         PowerPlant plant = new PowerPlant();
-        plant.specifyNotPersist(getCurrentTick(), agent, getNodeForZone(marketInformation.market.getZone()), technology);
+        plant.specifyNotPersist(getCurrentTick(), agent, node, technology);
         Map<Substance, Double> myFuelPrices = new HashMap<Substance, Double>();
         for (Substance fuel : technology.getFuels()) {
             myFuelPrices.put(fuel, marketInformation.fuelPrices.get(fuel));
         }
+        // DEBUG!
+        // if (debug) {
+        // logger.warn("Hypothetical fuel prices of the plant are " +
+        // myFuelPrices.toString());
+        // }
         Set<SubstanceShareInFuelMix> fuelMix = calculateFuelMix(plant, myFuelPrices, marketInformation.co2price);
+        // DEBUG!
+        // if (debug) {
+        // logger.warn("Hypothetical fuel mix of the plant is " +
+        // fuelMix.toString());
+        // }
+        plant.setFuelMix(fuelMix);
         double expectedMarginalCost = determineExpectedMarginalCost(plant, marketInformation.fuelPrices,
                 marketInformation.co2price);
+
         double runningHours = 0d;
         double expectedGrossProfit = 0d;
         long numberOfSegments = reps.segmentRepository.count();
 
+        // Debug!
+        double averagePrice = 0d;
+        double maxPrice = Double.MIN_VALUE;
+        double minPrice = Double.MAX_VALUE;
+        int n = 0;
+
         for (SegmentLoad segmentLoad : marketInformation.market.getLoadDurationCurve()) {
             double expectedElectricityPrice = marketInformation.expectedElectricityPricesPerSegment.get(segmentLoad
                     .getSegment());
+
+            // DEBUG!
+            if (expectedElectricityPrice < minPrice)
+                minPrice = expectedElectricityPrice;
+            if (expectedElectricityPrice > maxPrice)
+                maxPrice = expectedElectricityPrice;
+            averagePrice += expectedElectricityPrice;
+            n++;
+
             double hours = segmentLoad.getSegment().getLengthInHours();
             if (expectedMarginalCost <= expectedElectricityPrice) {
-                expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost) * hours
-                        * plant.getAvailableCapacity(futureTimePoint, segmentLoad.getSegment(), numberOfSegments);
+                runningHours += hours;
+                if (technology.isIntermittent())
+                    expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost)
+                    * hours
+                    * plant.getActualNominalCapacity()
+                    * reps.intermittentTechnologyNodeLoadFactorRepository
+                    .findIntermittentTechnologyNodeLoadFactorForNodeAndTechnology(node, technology)
+                    .getLoadFactorForSegment(segmentLoad.getSegment());
+                else
+                    expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost) * hours
+                    * plant.getAvailableCapacity(futureTimePoint, segmentLoad.getSegment(), numberOfSegments);
             }
         }
+
+        // DEBUG
+        if (debug) {
+            logger.warn("Hypothetical minimum electricity price is: " + Math.round(minPrice) + ", average price is "
+                    + Math.round(averagePrice / n) + ", maximum price is " + Math.round(maxPrice));
+        }
+
         if (runningHours < plant.getTechnology().getMinimumRunningHours()) {
             // logger.warn(agent+
             // " will not invest in {} technology as he expect to have {} running, which is lower then required",
             // technology, runningHours);
             // TODO WHAT TO DO???????
+            // DEBUG!
+            if (debug) {
+                logger.warn("Hypothetical GrossProfit is 0 because runningHours are " + runningHours);
+            }
             expectedGrossProfit = 0;
         }
         double fixedOMCost = calculateFixedOperatingCost(plant, getCurrentTick());
         double operatingProfit = expectedGrossProfit - fixedOMCost;
+
         // Calculation of weighted average cost of capital,
         // based on the companies debt-ratio
         double wacc = (1 - agent.getDebtRatioOfInvestments()) * agent.getEquityInterestRate()
@@ -663,7 +724,14 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
         double discountedCapitalCosts = npv(discountedProjectCapitalOutflow, wacc);
 
         double discountedOpProfit = npv(discountedProjectCashInflow, wacc);
-
+        // DEBUG!
+        if (debug) { // DEBUG!
+            logger.warn(
+                    "Hypothetical expected marginal costs:" + Math.round(expectedMarginalCost) + "\nFixed OM cost: "
+                            + Math.round(fixedOMCost) + "\nGrossProfits: " + Math.round(expectedGrossProfit)
+                            + "\nDiscountedCapitalCosts: " + Math.round(discountedCapitalCosts),
+                    "\nDiscountedOpProfit: " + Math.round(discountedOpProfit));
+        }
         // add up since discountedCapitalCosts are defined negative
         double projectValue = discountedOpProfit + discountedCapitalCosts;
 
@@ -712,9 +780,11 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                 for (MarketInformation m : newScenarios) {
                     result.add(m);
                     // Debug!
-                    if (debug) {
-                        logger.warn("added a scenario with different price of " + e.getKey().getName());
-                    }
+                    // if (debug) {
+                    // logger.warn("added a scenario with different price of " +
+                    // e.getKey().getName() + ". Price is "
+                    // + m.fuelPrices.get(e.getKey()));
+                    // }
                 }
             }
         }
@@ -729,6 +799,8 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                         riskAgent.getDemandConfidenceLevel());
                 // if everything worked out (i.e. n >= 3)
                 if (!(Double.isNaN(minAndMaxDemand[0]) || Double.isNaN(minAndMaxDemand[1]))) {
+                    minAndMaxDemand[0] = Math.max(0, minAndMaxDemand[0]);
+                    minAndMaxDemand[1] = Math.max(0, minAndMaxDemand[1]);
                     Map<ElectricitySpotMarket, Double> tmp = new HashMap<ElectricitySpotMarket, Double>();
                     tmp.putAll(baseMarket.expectedDemand);
                     // create first scenario (min)
@@ -758,6 +830,8 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                         riskAgent.getCo2PriceConfidenceLevel());
                 // if everything worked out (i.e. n >= 3)
                 if (!(Double.isNaN(minAndMaxCO2Price[0]) || Double.isNaN(minAndMaxCO2Price[1]))) {
+                    minAndMaxCO2Price[0] = Math.max(0, minAndMaxCO2Price[0]);
+                    minAndMaxCO2Price[1] = Math.max(0, minAndMaxCO2Price[1]);
                     // add first scenario
                     result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand,
                             baseMarket.fuelPrices, minAndMaxCO2Price[0], baseMarket.time, "Low CO2 Price"));
@@ -797,27 +871,32 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
     private ArrayList<MarketInformation> alterFuelPriceInMarketInformation(MarketInformation baseMarket,
             Substance substance, SimpleRegressionWithPredictionInterval priceRegression, double confidenceLevel,
             long futureTimePoint) {
-        // TODO Testen!
-        // 2 new marketInformation - one min and one max scenario
+        // Two new marketInformation - one min and one max scenario
         ArrayList<MarketInformation> result = new ArrayList<MarketInformation>();
         // copy all other prices
-        Map<Substance, Double> tmpPrices = new HashMap<Substance, Double>();
-        tmpPrices.putAll(baseMarket.fuelPrices);
+        Map<Substance, Double> lowPrices = new HashMap<Substance, Double>();
+        Map<Substance, Double> highPrices = new HashMap<Substance, Double>();
+        lowPrices.putAll(baseMarket.fuelPrices);
+        highPrices.putAll(baseMarket.fuelPrices);
         // new prices
         double[] minAndMaxPrice = new double[2];
         minAndMaxPrice = priceRegression.getPredictionInterval(futureTimePoint, confidenceLevel);
 
         // if everything worked out (i.e. n >= 3)
         if (!(Double.isNaN(minAndMaxPrice[0]) || Double.isNaN(minAndMaxPrice[1]))) {
+            minAndMaxPrice[0] = Math.max(0, minAndMaxPrice[0]);
+            minAndMaxPrice[1] = Math.max(0, minAndMaxPrice[1]);
             // add first scenario (min)
-            tmpPrices.put(substance, minAndMaxPrice[0]);
+            lowPrices.remove(substance);
+            lowPrices.put(substance, minAndMaxPrice[0]);
             // keep everything as in base scenario, only change
             // fuelprice Map
-            result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand, tmpPrices,
+            result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand, lowPrices,
                     baseMarket.co2price, baseMarket.time, "Low price for " + substance.getName()));
-            // add second scenario (max) (put will overwrite old entry)
-            tmpPrices.put(substance, minAndMaxPrice[1]);
-            result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand, tmpPrices,
+            // add second scenario (max)
+            highPrices.remove(substance);
+            highPrices.put(substance, minAndMaxPrice[1]);
+            result.add(new MarketInformation(baseMarket.market, baseMarket.expectedDemand, highPrices,
                     baseMarket.co2price, baseMarket.time, "High price for " + substance.getName()));
             // DEBUG!
             if (debug) {
@@ -1007,7 +1086,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
 
         ClearingPoint expectedCO2ClearingPoint = reps.clearingPointRepository.findClearingPointForMarketAndTime(
                 co2Auction, getCurrentTick()
-                        + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
+                + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
                 true);
         expectedCO2Price = (expectedCO2ClearingPoint == null) ? 0 : expectedCO2ClearingPoint.getPrice();
         expectedCO2Price = (expectedCO2Price + expectedRegressionCO2Price) / 2;
@@ -1106,14 +1185,16 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
         return fc;
     }
 
-    private PowerGridNode getNodeForZone(Zone zone) {
-        for (PowerGridNode node : reps.genericRepository.findAll(PowerGridNode.class)) {
-            if (node.getZone().equals(zone)) {
-                return node;
-            }
-        }
-        return null;
-    }
+    // Not needed?
+    // private PowerGridNode getNodeForZone(Zone zone) {
+    // for (PowerGridNode node :
+    // reps.genericRepository.findAll(PowerGridNode.class)) {
+    // if (node.getZone().equals(zone)) {
+    // return node;
+    // }
+    // }
+    // return null;
+    // }
 
     /**
      * Creates a Map with all Substances, that are marked to be included in the
@@ -1235,9 +1316,11 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                     }
                 } else {
                     for (PowerGeneratingTechnologyTarget pggt : targetInvestor.getPowerGenerationTechnologyTargets()) {
-                        double expectedTechnologyCapacity = reps.powerPlantRepository
-                                .calculateCapacityOfExpectedOperationalPowerPlantsInMarketAndTechnology(market,
-                                        pggt.getPowerGeneratingTechnology(), time);
+                        // Not needed?
+                        // double expectedTechnologyCapacity =
+                        // reps.powerPlantRepository
+                        // .calculateCapacityOfExpectedOperationalPowerPlantsInMarketAndTechnology(market,
+                        // pggt.getPowerGeneratingTechnology(), time);
                         double expectedTechnologyAddition = 0;
                         long contructionTime = getCurrentTick()
                                 + pggt.getPowerGeneratingTechnology().getExpectedLeadtime()

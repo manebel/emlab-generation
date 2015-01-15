@@ -423,7 +423,7 @@
 		p:threshold="-100000"
 		p:thresholdDefinition="2"/>
 
-	<bean id="standardInvestmentRole" class="emlab.gen.role.investment.InvestInPowerGenerationTechnologiesRole"/>
+	<bean id="standardInvestmentRole" class="emlab.gen.role.investment.InvestInPowerGenerationTechnologiesIncludingRisksRole"/>
 
 	<!-- PowerGenerationTechnology Node Limits -->
 	
