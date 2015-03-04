@@ -27,6 +27,7 @@ import emlab.gen.domain.agent.CommoditySupplier;
 import emlab.gen.domain.agent.DecarbonizationModel;
 import emlab.gen.domain.agent.EnergyConsumer;
 import emlab.gen.domain.agent.EnergyProducer;
+import emlab.gen.domain.agent.EnergyProducerConsideringRiskScenariosSatisficer;
 import emlab.gen.domain.agent.Government;
 import emlab.gen.domain.agent.StrategicReserveOperator;
 import emlab.gen.domain.agent.TargetInvestor;
@@ -186,7 +187,8 @@ public class DecarbonizationModelRole extends AbstractRole<DecarbonizationModel>
         }
 
         /*
-         * Clear electricity spot and CO2 markets and determine also the commitment of powerplants.
+         * Clear electricity spot and CO2 markets and determine also the
+         * commitment of powerplants.
          */
         timerMarket.reset();
         timerMarket.start();
@@ -301,6 +303,21 @@ public class DecarbonizationModelRole extends AbstractRole<DecarbonizationModel>
         timerMarket.stop();
         logger.warn("        took: {} seconds.", timerMarket.seconds());
 
+        // // DEBUG!
+        if (getCurrentTick() == 0) {
+            for (EnergyProducer producer : reps.energyProducerRepository
+                    .findAllEnergyProducersExceptForRenewableTargetInvestorsAtRandom()) {
+                if (producer instanceof EnergyProducerConsideringRiskScenariosSatisficer) {
+                    EnergyProducerConsideringRiskScenariosSatisficer producer1 = (EnergyProducerConsideringRiskScenariosSatisficer) producer;
+                    logger.warn(" Parameters for investment: CoalPriceConfidenceLevel: "
+                            + producer1.getCoalPriceConfidenceLevel() + ",  GasPriceConfidenceLevel: "
+                            + producer1.getGasPriceConfidenceLevel() + ",  DemandConfidenceLevel: "
+                            + producer1.getDemandConfidenceLevel() + " ,  ThresholdDefinition"
+                            + producer1.getThresholdDefinition() + ",  Threshold: " + producer1.getThreshold() + " Net Worth: "
+			    +	reps.energyProducerRepository.calculateEquityOfEnergyProducer(producer1,getCurrentTick()));
+                }
+            }
+        }
         logger.warn("  7. Investing");
         Timer timerInvest = new Timer();
         timerInvest.start();

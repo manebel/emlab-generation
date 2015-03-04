@@ -20,6 +20,7 @@ import java.util.List;
 import org.springframework.data.neo4j.annotation.Query;
 import org.springframework.data.neo4j.annotation.QueryType;
 import org.springframework.data.neo4j.repository.GraphRepository;
+import org.springframework.data.repository.query.Param;
 
 import emlab.gen.domain.agent.EnergyProducer;
 
@@ -27,12 +28,10 @@ import emlab.gen.domain.agent.EnergyProducer;
  * @author JCRichstein
  *
  */
-public interface EnergyProducerRepository extends
-GraphRepository<EnergyProducer> {
+public interface EnergyProducerRepository extends GraphRepository<EnergyProducer> {
 
     @Query(value = "result = g.idx('__types__')[[className:'emlab.gen.domain.agent.EnergyProducer']].propertyFilter('__type__', FilterPipe.Filter.NOT_EQUAL, 'emlab.gen.domain.agent.TargetInvestor').propertyFilter('__type__', FilterPipe.Filter.NOT_EQUAL, 'emlab.gen.domain.agent.StochasticTargetInvestor').toList();"
-            +
-            "if(result == null){return null;} else {Collections.shuffle(result); return result;}", type=QueryType.Gremlin)
+            + "if(result == null){return null;} else {Collections.shuffle(result); return result;}", type = QueryType.Gremlin)
     List<EnergyProducer> findAllEnergyProducersExceptForRenewableTargetInvestorsAtRandom();
 
     @Query(value = "agents = g.idx('__types__')[[className:'emlab.gen.domain.agent.DecarbonizationAgent']];"
@@ -40,5 +39,26 @@ GraphRepository<EnergyProducer> {
             + "for(agent in agents){if(agent.co2Allowances!=null) co2Allowances+=agent.co2Allowances};"
             + "return co2Allowances;", type = QueryType.Gremlin)
     double determineTotallyBankedCO2Certificates();
+
+    @Query(value = "powerplants = g.v(producer).in('POWERPLANT_OWNER');"
+            + "netWorthOfPowerPlants=0;"
+            + "loanSum=0;"
+            + "if(powerplants.hasNext()){"
+            + "for(pp in powerplants){"
+            + "fractionOfTimeLeft=(pp.out('TECHNOLOGY').depreciationTime.next() - tick + pp.constructionStartTime) / pp.out('TECHNOLOGY').depreciationTime.next();"
+            + "if (fractionOfTimeLeft > 1) fractionOfTimeLeft=1;"
+            + "if (fractionOfTimeLeft < 0) fractionOfTimeLeft=0;"
+            + "netWorthOfPowerPlants = netWorthOfPowerPlants + fractionOfTimeLeft * pp.actualInvestedCapital;"
+	    + "};"
+	    + "};"
+            + "loans=g.v(producer).in('LEND_TO_AGENT');"
+            + "interestRate = g.v(producer).loanInterestRate;"
+            + "if (loans.hasNext()){"
+            + "for (loan in loans){"
+            + "if (loan.numberOfPaymentsDone < loan.totalNumberOfPayments){"
+            + "averageDiscountedCostOfPayment = loan.amountPerPayment / Math.pow ((1+interestRate), (loan.totalNumberOfPayments+1)/2);"
+            + "loanSum = loanSum + averageDiscountedCostOfPayment * (loan.totalNumberOfPayments-loan.numberOfPaymentsDone);"
+            + "};};};" + "return g.v(producer).cash + netWorthOfPowerPlants - loanSum", type = QueryType.Gremlin)
+    public double calculateEquityOfEnergyProducer(@Param("producer") EnergyProducer producer, @Param("tick") long tick);
 
 }

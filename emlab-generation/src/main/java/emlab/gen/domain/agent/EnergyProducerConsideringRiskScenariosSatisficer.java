@@ -34,7 +34,8 @@ public class EnergyProducerConsideringRiskScenariosSatisficer extends AbstractEn
     private double threshold;
 
     @SimulationParameter(label = "(1): Threshold is defined relatively agains net worth of company."
-            + "(2): Threshold is defined in absolut terms.", from = 1, to = 2)
+            + "(2): Threshold is defined relatively against liquidity of company "
+            + "(3) Threshold is defined in absolut terms.", from = 1, to = 3)
     private int thresholdDefinition;
 
     public double getThreshold() {

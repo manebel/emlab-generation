@@ -551,14 +551,16 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                     if (bestTechnology != null) {
                         double npvInScenario;
                         double relativeNPV;
-                        npvInScenario = calculateHypotheticalNPV(bestTechnology, nodes.get(bestTechnology), mar,
-                                riskAgentScenarios, futureTimePoint);
+                        npvInScenario = calculateHypotheticalNPVPerCapacity(bestTechnology, nodes.get(bestTechnology),
+                                mar, riskAgentScenarios, futureTimePoint);
 
                         switch (riskAgentScenarios.getThresholdDefinition()) {
                         // case 1: relatively against net worth of company
                         case 1:
-                            if (riskAgentScenarios.getCash() != 0) {
-                                relativeNPV = npvInScenario / riskAgentScenarios.getCash();
+                            double equity = reps.energyProducerRepository
+                                    .calculateEquityOfEnergyProducer(riskAgentScenarios, getCurrentTick());
+                            if (equity > 0) {
+                                relativeNPV = npvInScenario / equity;
                             } else {
                                 if (npvInScenario >= 0) {
                                     relativeNPV = Double.MAX_VALUE;
@@ -568,10 +570,19 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                             }
                             break;
 
-                        // case 2: absolute
+                        // case 2: relative against liquidity
                         case 2:
-                            relativeNPV = npvInScenario;
+                            if (riskAgentScenarios.getCash() > 0)
+                                relativeNPV = npvInScenario / riskAgentScenarios.getCash();
+                            else if (npvInScenario >= 0) {
+                                relativeNPV = Double.MAX_VALUE;
+                            } else {
+                                relativeNPV = Double.MIN_VALUE;
+                            }
                             break;
+                        // case 3: absolute
+                        case 3:
+                            relativeNPV = npvInScenario;
                         default:
                             // default: Threshold is defined in absolute terms
                             relativeNPV = npvInScenario;
@@ -624,7 +635,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
      * @param futureTimePoint
      * @return
      */
-    public double calculateHypotheticalNPV(PowerGeneratingTechnology technology, PowerGridNode node,
+    public double calculateHypotheticalNPVPerCapacity(PowerGeneratingTechnology technology, PowerGridNode node,
             MarketInformation marketInformation, EnergyProducer agent, Long futureTimePoint) {
         // get fuel prices for specific plant
         PowerPlant plant = new PowerPlant();
@@ -687,10 +698,12 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
         }
 
         // DEBUG
-        if (debug) {
-            logger.warn("Hypothetical minimum electricity price is: " + Math.round(minPrice) + ", average price is "
-                    + Math.round(averagePrice / n) + ", maximum price is " + Math.round(maxPrice));
-        }
+        // if (debug) {
+        // logger.warn("Hypothetical minimum electricity price is: " +
+        // Math.round(minPrice) + ", average price is "
+        // + Math.round(averagePrice / n) + ", maximum price is " +
+        // Math.round(maxPrice));
+        // }
 
         if (runningHours < plant.getTechnology().getMinimumRunningHours()) {
             // logger.warn(agent+
@@ -725,18 +738,20 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
 
         double discountedOpProfit = npv(discountedProjectCashInflow, wacc);
         // DEBUG!
-        if (debug) { // DEBUG!
-            logger.warn(
-                    "Hypothetical expected marginal costs:" + Math.round(expectedMarginalCost) + "\nFixed OM cost: "
-                            + Math.round(fixedOMCost) + "\nGrossProfits: " + Math.round(expectedGrossProfit)
-                            + "\nDiscountedCapitalCosts: " + Math.round(discountedCapitalCosts),
-                            "\nDiscountedOpProfit: " + Math.round(discountedOpProfit));
-        }
+        // if (debug) { // DEBUG!
+        // logger.warn(
+        // "Hypothetical expected marginal costs:" +
+        // Math.round(expectedMarginalCost) + "\nFixed OM cost: "
+        // + Math.round(fixedOMCost) + "\nGrossProfits: " +
+        // Math.round(expectedGrossProfit)
+        // + "\nDiscountedCapitalCosts: " + Math.round(discountedCapitalCosts),
+        // "\nDiscountedOpProfit: " + Math.round(discountedOpProfit));
+        // }
         // add up since discountedCapitalCosts are defined negative
         double projectValue = discountedOpProfit + discountedCapitalCosts;
 
         // return absolute project value
-        return projectValue;
+        return projectValue / plant.getActualNominalCapacity();
 
     }
 
@@ -809,15 +824,17 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                     result.add(new MarketInformation(baseMarket.market, tmp, baseMarket.fuelPrices,
                             baseMarket.co2price, baseMarket.time, "Low Demand"));
                     // create second scenario (max)
-                    tmp.remove(ownMarket);
-                    tmp.put(ownMarket, minAndMaxDemand[1]);
-                    result.add(new MarketInformation(baseMarket.market, tmp, baseMarket.fuelPrices,
-                            baseMarket.co2price, baseMarket.time, "High Demand"));
+                    // tmp.remove(ownMarket);
+                    // tmp.put(ownMarket, minAndMaxDemand[1]);
+                    // result.add(new MarketInformation(baseMarket.market, tmp,
+                    // baseMarket.fuelPrices,
+                    // baseMarket.co2price, baseMarket.time, "High Demand"));
                     // DEBUG!
                     if (debug) {
-                        logger.warn("added two scenarios with different demand (normal forecasted value was: "
+                        logger.warn("Added ONE scenario with different demand (normal forecasted value was: "
                                 + baseMarket.expectedDemand.get(ownMarket).toString() + "). MinDemand: "
-                                + minAndMaxDemand[0] + ". MaxDemand: " + minAndMaxDemand[1]);
+                                + minAndMaxDemand[0] + ". MaxDemand was nat added, since it is not needed: "
+                                + minAndMaxDemand[1]);
                     }
                 }
 

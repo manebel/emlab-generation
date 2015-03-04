@@ -137,19 +137,11 @@ public class PowerPlantEntryParser implements CSVEntryParser<PowerPlant> {
                 e.printStackTrace();
             }
         }
-        try {
-            return createPowerPlant(name, pgt, energyProducer, powerGridNode, age, capacity, efficiency);
-        } catch (NullPointerException e) {
-            logger.warn("ERROR: Name: \"" + name + "\",Pgt: " + pgt + ", EnergyProducer" + energyProducer + ", Node:"
-                    + powerGridNode
-                    + ", Age:" + age + ", Capacity: " + capacity + ", Efficiency:" + efficiency);
-            throw e;
-        }
+        return createPowerPlant(name, pgt, energyProducer, powerGridNode, age, capacity, efficiency);
     }
 
     private PowerPlant createPowerPlant(String name, PowerGeneratingTechnology technology,
-            EnergyProducer energyProducer,
-            PowerGridNode location, int age, double capacity, double efficiency) {
+            EnergyProducer energyProducer, PowerGridNode location, int age, double capacity, double efficiency) {
         PowerPlant plant = new PowerPlant().persist();
         plant.setName(name);
         plant.setTechnology(technology);
@@ -179,11 +171,14 @@ public class PowerPlantEntryParser implements CSVEntryParser<PowerPlant> {
         loan.setTo(null);
         double amountPerPayment = determineLoanAnnuities(
                 plant.getActualInvestedCapital() * energyProducer.getDebtRatioOfInvestments(), plant.getTechnology()
-                .getDepreciationTime(), energyProducer.getLoanInterestRate());
+                        .getDepreciationTime(), energyProducer.getLoanInterestRate());
         loan.setAmountPerPayment(amountPerPayment);
         loan.setTotalNumberOfPayments(plant.getTechnology().getDepreciationTime());
         loan.setLoanStartTime(plant.getConstructionStartTime());
-        loan.setNumberOfPaymentsDone(-plant.getConstructionStartTime());// Some
+        loan.setNumberOfPaymentsDone(Math.min(-plant.getConstructionStartTime(), plant.getTechnology()
+                .getDepreciationTime()));
+        // loan.setNumberOfPaymentsDone(-plant.getConstructionStartTime());
+        // Some
         // payments
         // are
         // already
