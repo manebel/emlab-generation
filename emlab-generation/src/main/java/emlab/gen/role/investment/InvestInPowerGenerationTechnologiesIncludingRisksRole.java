@@ -94,13 +94,11 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
     // market expectations
     @Transient
     Map<ElectricitySpotMarket, MarketInformation> marketInfoMap = new HashMap<ElectricitySpotMarket, MarketInformation>();
-    boolean debug = true;
+    boolean debug = false;
     boolean riskConsideration = true; // TODO - do we need this?
 
     @Override
     public void act(T agent) {
-
-        // DEBUG!
 
         long futureTimePoint = getCurrentTick() + agent.getInvestmentFutureTimeHorizon();
         // DEBUG!
@@ -557,8 +555,8 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                         switch (riskAgentScenarios.getThresholdDefinition()) {
                         // case 1: relatively against net worth of company
                         case 1:
-                            double equity = reps.energyProducerRepository
-                                    .calculateEquityOfEnergyProducer(riskAgentScenarios, getCurrentTick());
+                            double equity = reps.energyProducerRepository.calculateEquityOfEnergyProducer(
+                                    riskAgentScenarios, getCurrentTick());
                             if (equity > 0) {
                                 relativeNPV = npvInScenario / equity;
                             } else {
