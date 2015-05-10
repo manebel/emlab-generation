@@ -77,7 +77,7 @@ import emlab.gen.util.SimpleRegressionWithPredictionInterval;
 @Configurable
 @NodeEntity
 public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends EnergyProducer> extends
-        GenericInvestmentRole<T> implements Role<T>, NodeBacked {
+GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
     @Transient
     @Autowired
@@ -273,7 +273,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
 
                 if ((expectedInstalledCapacityOfTechnology + plant.getActualNominalCapacity())
                         / (marketInformation.maxExpectedLoad + plant.getActualNominalCapacity()) > technology
-                            .getMaximumInstalledCapacityFractionInCountry()) {
+                        .getMaximumInstalledCapacityFractionInCountry()) {
                     // logger.warn(agent +
                     // " will not invest in {} technology because there's too much of this type in the market",
                     // technology);
@@ -568,7 +568,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                             }
                             break;
 
-                        // case 2: relative against liquidity
+                            // case 2: relative against liquidity
                         case 2:
                             if (riskAgentScenarios.getCash() > 0)
                                 relativeNPV = npvInScenario / riskAgentScenarios.getCash();
@@ -578,7 +578,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                                 relativeNPV = Double.MIN_VALUE;
                             }
                             break;
-                        // case 3: absolute
+                            // case 3: absolute
                         case 3:
                             relativeNPV = npvInScenario;
                         default:
@@ -593,8 +593,8 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                             if (debug) {
                                 logger.warn(
                                         "(Relative) NPV of {} in scenario " + mar.name
-                                                + " is sufficient for Agent {}. Threshold: "
-                                                + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
+                                        + " is sufficient for Agent {}. Threshold: "
+                                        + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
                                         riskAgentScenarios);
                                 // logger.warn("Fuel prices are: " +
                                 // mar.fuelPrices.toString());
@@ -605,8 +605,8 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                             if (debug) {
                                 logger.warn(
                                         "(Relative) NPV of {} in scenario " + mar.name
-                                                + " is not satisfactory for Agent {}. Threshold: "
-                                                + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
+                                        + " is not satisfactory for Agent {}. Threshold: "
+                                        + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
                                         riskAgentScenarios);
                                 // logger.warn("Fuel prices are: " +
                                 // mar.fuelPrices.toString());
@@ -684,14 +684,14 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                 runningHours += hours;
                 if (technology.isIntermittent())
                     expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost)
-                            * hours
-                            * plant.getActualNominalCapacity()
-                            * reps.intermittentTechnologyNodeLoadFactorRepository
-                                    .findIntermittentTechnologyNodeLoadFactorForNodeAndTechnology(node, technology)
-                                    .getLoadFactorForSegment(segmentLoad.getSegment());
+                    * hours
+                    * plant.getActualNominalCapacity()
+                    * reps.intermittentTechnologyNodeLoadFactorRepository
+                    .findIntermittentTechnologyNodeLoadFactorForNodeAndTechnology(node, technology)
+                    .getLoadFactorForSegment(segmentLoad.getSegment());
                 else
                     expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost) * hours
-                            * plant.getAvailableCapacity(futureTimePoint, segmentLoad.getSegment(), numberOfSegments);
+                    * plant.getAvailableCapacity(futureTimePoint, segmentLoad.getSegment(), numberOfSegments);
             }
         }
 
@@ -857,7 +857,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
                     if (debug) {
                         logger.warn("added two scenarios with different CO2 prices (normal forecasted value was: "
                                 + baseMarket.co2price + "). Min CO2 price: " + minAndMaxCO2Price[0]
-                                        + ". Max CO2 price: " + minAndMaxCO2Price[1]);
+                                + ". Max CO2 price: " + minAndMaxCO2Price[1]);
                     }
                 }
             }
@@ -1101,7 +1101,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
 
         ClearingPoint expectedCO2ClearingPoint = reps.clearingPointRepository.findClearingPointForMarketAndTime(
                 co2Auction, getCurrentTick()
-                        + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
+                + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
                 true);
         expectedCO2Price = (expectedCO2ClearingPoint == null) ? 0 : expectedCO2ClearingPoint.getPrice();
         expectedCO2Price = (expectedCO2Price + expectedRegressionCO2Price) / 2;
@@ -1311,7 +1311,7 @@ public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends Ene
 
             // get difference between technology target and expected operational
             // capacity
-            for (TargetInvestor targetInvestor : reps.targetInvestorRepository.findAll()) {
+            for (TargetInvestor targetInvestor : reps.targetInvestorRepository.findAllByMarket(market)) {
                 if (!(targetInvestor instanceof StochasticTargetInvestor)) {
                     for (PowerGeneratingTechnologyTarget pggt : targetInvestor.getPowerGenerationTechnologyTargets()) {
                         double expectedTechnologyCapacity = reps.powerPlantRepository
