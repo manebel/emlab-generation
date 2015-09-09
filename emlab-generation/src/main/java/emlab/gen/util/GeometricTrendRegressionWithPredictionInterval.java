@@ -18,7 +18,13 @@ package emlab.gen.util;
 import org.apache.commons.math.distribution.TDistribution;
 
 /**
- * @author manebel
+ * Implementation of a geometric trend regression with the additional method
+ * double getPredictionIntervall (double x, double alpha) that returns the
+ * 1-alpha prediction interval of the predicted value of x. Since the mean of x
+ * is required for this calculation, the variable xsum is introduced and
+ * updated, whenever any data is added or removed.
+ *
+ * @author Marvin Nebel
  *
  */
 public class GeometricTrendRegressionWithPredictionInterval extends SimpleRegressionWithPredictionInterval {
@@ -31,6 +37,8 @@ public class GeometricTrendRegressionWithPredictionInterval extends SimpleRegres
     }
 
     /**
+     * Constructor
+     *
      * @param t
      */
     public GeometricTrendRegressionWithPredictionInterval(TDistribution t) {
@@ -58,8 +66,7 @@ public class GeometricTrendRegressionWithPredictionInterval extends SimpleRegres
     @Override
     public void removeData(double[][] data) {
         for (int i = 0; i < data.length && super.getN() > 0; i++) {
-            // removeData(data[i][0], Math.log(data[i][1]));
-            removeData(data[i][0], data[i][1]); // ISN'T THIS CORRECT?
+            removeData(data[i][0], data[i][1]);
         }
     }
 
@@ -71,13 +78,15 @@ public class GeometricTrendRegressionWithPredictionInterval extends SimpleRegres
     @Override
     public double[] getPredictionInterval(double x, double alpha) {
         double[] result = new double[2];
+        // three datapoints required
         if (super.getN() < 3) {
             result[0] = Double.NaN;
             result[1] = Double.NaN;
             return result;
         }
-
         double volatility = super.getHalfWidthOfPredictionInterval(x, alpha);
+        // exp on results as this is a geometric trend regression
+        // (data is added as log())
         result[0] = Math.exp(super.predict(x) - volatility);
         result[1] = Math.exp(super.predict(x) + volatility);
         return result;

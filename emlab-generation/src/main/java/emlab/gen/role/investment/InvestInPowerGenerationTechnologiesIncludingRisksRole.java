@@ -68,16 +68,33 @@ import emlab.gen.util.SimpleRegressionWithPredictionInterval;
 
 /**
  * {@link EnergyProducer}s decide to invest in new {@link PowerPlant}
+ * considering investment risks
  *
  * @author <a href="mailto:E.J.L.Chappin@tudelft.nl">Emile Chappin</a> @author
  *         <a href="mailto:A.Chmieliauskas@tudelft.nl">Alfredas
  *         Chmieliauskas</a>
  * @author JCRichstein
+ * @author Marvin Nebel
+ */
+/**
+ * @author manebel
+ *
+ * @param <T>
+ */
+/**
+ * @author manebel
+ *
+ * @param <T>
+ */
+/**
+ * @author manebel
+ *
+ * @param <T>
  */
 @Configurable
 @NodeEntity
 public class InvestInPowerGenerationTechnologiesIncludingRisksRole<T extends EnergyProducer> extends
-GenericInvestmentRole<T> implements Role<T>, NodeBacked {
+        GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
     @Transient
     @Autowired
@@ -102,37 +119,18 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
         long futureTimePoint = getCurrentTick() + agent.getInvestmentFutureTimeHorizon();
         // DEBUG!
-        // if (Debug){
-        // logger.warn("Starting act() in InvestInPowerGenerationTechnologiesRole");
-        // logger.warn(agent + " is looking at timepoint " + futureTimePoint);
-        // }
+        if (debug) {
+            logger.warn("Starting act() in InvestInPowerGenerationTechnologiesRole");
+            logger.warn(agent + " is looking at timepoint " + futureTimePoint);
+        }
 
         // ==== Expectations ===
         Map<Substance, ? extends SimpleRegressionWithPredictionInterval> fuelPriceRegressions = createSimpleFuelPriceRegressions(agent);
-        // Map<Substance, Double> expectedFuelPrices_old =
-        // predictFuelPrices(agent, futureTimePoint);
         Map<Substance, Double> expectedFuelPrices = predictFuelPrices(fuelPriceRegressions, futureTimePoint);
 
-        // DEBUG!
-        // if (debug) {
-        // for (Map.Entry<Substance, Double> e : expectedFuelPrices.entrySet())
-        // {
-        // logger.warn("Substance: " + e.getKey() + "Price old: " +
-        // expectedFuelPrices_old.get(e.getKey())
-        // + "Price new: " + e.getValue());
-        // }
-        // }
-
         // CO2
-        // Map<ElectricitySpotMarket, Double> expectedCO2Price_old =
-        // determineExpectedCO2PriceInclTax(futureTimePoint,
-        // agent.getNumberOfYearsBacklookingForForecasting(), getCurrentTick());
-
         SimpleRegressionWithPredictionInterval co2PriceRegression = createSimpleCO2PriceRegression(agent,
                 getCurrentTick());
-        // Map<ElectricitySpotMarket, Double> expectedCO2PriceNonFundamental =
-        // determineExpectedCO2PriceInclTax(
-        // co2PriceRegression, futureTimePoint);
         Map<ElectricitySpotMarket, Double> expectedCO2PriceFundamental = determineExpectedCO2PriceInclTaxAndFundamentalForecast(
                 co2PriceRegression, futureTimePoint);
 
@@ -141,62 +139,28 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         // expectedCO2PriceNonFundamental;
         Map<ElectricitySpotMarket, Double> expectedCO2Price = expectedCO2PriceFundamental;
 
-        // DEBUG!
-        // if (debug) {
-        // for (Map.Entry<ElectricitySpotMarket, Double> e :
-        // expectedCO2Price.entrySet()) {
-        // logger.warn("Electricity Market: " + e.getKey() + "CO2 Price old: "
-        // + expectedCO2Price_old.get(e.getKey()) + " CO2 Price new: " +
-        // e.getValue());
-        // }
-        // }
-
         // Demand
         Map<ElectricitySpotMarket, ? extends SimpleRegressionWithPredictionInterval> expectedDemandRegression = createGeometricDemandRegression(
                 agent, getCurrentTick());
         Map<ElectricitySpotMarket, Double> expectedDemand = predictElectricityDemand(expectedDemandRegression,
                 futureTimePoint);
 
-        // Demand old (not needed)
-        // Map<ElectricitySpotMarket, Double> expectedDemand_old = new
-        // HashMap<ElectricitySpotMarket, Double>();
-        // for (ElectricitySpotMarket elm :
-        // reps.template.findAll(ElectricitySpotMarket.class)) {
-        // GeometricTrendRegression gtr = new GeometricTrendRegression();
-        // for (long time = getCurrentTick(); time > getCurrentTick()
-        // - agent.getNumberOfYearsBacklookingForForecasting()
-        // && time >= 0; time = time - 1) {
-        // gtr.addData(time, elm.getDemandGrowthTrend().getValue(time));
-        // }
-        // expectedDemand_old.put(elm, gtr.predict(futureTimePoint));
-        // }
-
-        // DEBUG!
-        // if (debug) {
-        // for (Map.Entry<ElectricitySpotMarket, Double> e :
-        // expectedDemand.entrySet()) {
-        // logger.warn("Electricity Market: " + e.getKey() +
-        // ". Expected demand old: "
-        // + expectedDemand_old.get(e.getKey()) + " Expected demand new: " +
-        // e.getValue());
-        // }
-        // }
-
         // Investment decision
         ElectricitySpotMarket market = agent.getInvestorMarket();
         MarketInformation marketInformation = new MarketInformation(market, expectedDemand, expectedFuelPrices,
                 expectedCO2Price.get(market).doubleValue(), futureTimePoint);
 
-        // if (debug) {
-        // logger.warn(agent + " is expecting a CO2 price of " +
-        // expectedCO2Price.get(market)
-        // + " Euro/MWh at timepoint " + futureTimePoint + " in Market " +
-        // market);
-        // }
+        // DEBUG
+        if (debug) {
+            logger.warn(agent + " is expecting a CO2 price of " + expectedCO2Price.get(market)
+                    + " Euro/MWh at timepoint " + futureTimePoint + " in Market " + market);
+        }
 
-        // logger.warn("Agent {}  found the expected prices to be {}", agent,
-        // marketInformation.expectedElectricityPricesPerSegment);
-        //
+        if (debug) {
+            logger.warn("Agent {}  found the expected prices to be {}", agent,
+                    marketInformation.expectedElectricityPricesPerSegment);
+        }
+
         // logger.warn("Agent {}  found that the installed capacity in the market {} in future to be "
         // + marketInformation.capacitySum +
         // "and expectde maximum demand to be "
@@ -204,10 +168,15 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
         // double highestValue = Double.MIN_VALUE;
 
+        // Map to save all technologies with positive NPV
         Map<PowerGeneratingTechnology, Double> technologiesWithPositiveNPV = new HashMap<PowerGeneratingTechnology, Double>();
         PowerGeneratingTechnology bestTechnology = null;
+
+        // Map to save the nodes and technology combinations that are most
+        // profitable
         Map<PowerGeneratingTechnology, PowerGridNode> bestNodes = new HashMap<PowerGeneratingTechnology, PowerGridNode>();
 
+        // Test all technologies
         for (PowerGeneratingTechnology technology : reps.genericRepository.findAll(PowerGeneratingTechnology.class)) {
 
             DecarbonizationModel model = reps.genericRepository.findAll(DecarbonizationModel.class).iterator().next();
@@ -235,10 +204,12 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
 
             for (PowerGridNode node : possibleInstallationNodes) {
 
+                // create hypothetical power plant
                 PowerPlant plant = new PowerPlant();
                 plant.specifyNotPersist(getCurrentTick(), agent, node, technology);
-                // if too much capacity of this technology in the pipeline (not
-                // limited to the 5 years)
+
+                // Get several variables concerning the current share of this
+                // technology
                 double expectedInstalledCapacityOfTechnology = reps.powerPlantRepository
                         .calculateCapacityOfExpectedOperationalPowerPlantsInMarketAndTechnology(market, technology,
                                 futureTimePoint);
@@ -271,43 +242,59 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                 double capacityInPipelineInMarket = reps.powerPlantRepository
                         .calculateCapacityOfPowerPlantsByMarketInPipeline(market, getCurrentTick());
 
+                // If too much capacity of this technology in the market
                 if ((expectedInstalledCapacityOfTechnology + plant.getActualNominalCapacity())
                         / (marketInformation.maxExpectedLoad + plant.getActualNominalCapacity()) > technology
-                        .getMaximumInstalledCapacityFractionInCountry()) {
+                            .getMaximumInstalledCapacityFractionInCountry()) {
                     // logger.warn(agent +
                     // " will not invest in {} technology because there's too much of this type in the market",
                     // technology);
-                } else if ((expectedInstalledCapacityOfTechnologyInNode + plant.getActualNominalCapacity()) > pgtNodeLimit) {
+                }
+                // If limit of technology within the node is reached
+                else if ((expectedInstalledCapacityOfTechnologyInNode + plant.getActualNominalCapacity()) > pgtNodeLimit) {
 
-                } else if (expectedOwnedCapacityInMarketOfThisTechnology > expectedOwnedTotalCapacityInMarket
+                }
+                // If too much capacity of this technology is planned by the
+                // current agent
+                else if (expectedOwnedCapacityInMarketOfThisTechnology > expectedOwnedTotalCapacityInMarket
                         * technology.getMaximumInstalledCapacityFractionPerAgent()) {
                     // logger.warn(agent +
                     // " will not invest in {} technology because there's too much capacity planned by him",
                     // technology);
+                    // If capacity in pipeline is higher than 20%
                 } else if (capacityInPipelineInMarket > 0.2 * marketInformation.maxExpectedLoad) {
                     // logger.warn("Not investing because more than 20% of demand in pipeline.");
 
-                } else if ((capacityOfTechnologyInPipeline > 2.0 * operationalCapacityOfTechnology)
+                }
+                // If too much capaity of this technology expands out of zero
+                else if ((capacityOfTechnologyInPipeline > 2.0 * operationalCapacityOfTechnology)
                         && capacityOfTechnologyInPipeline > 9000) { // TODO:
                     // reflects that you cannot expand a technology out of zero.
                     // logger.warn(agent +
                     // " will not invest in {} technology because there's too much capacity in the pipeline",
                     // technology);
-                } else if (plant.getActualInvestedCapital() * (1 - agent.getDebtRatioOfInvestments()) > agent
+                }
+                // If agent has not enough money for downpayment
+                else if (plant.getActualInvestedCapital() * (1 - agent.getDebtRatioOfInvestments()) > agent
                         .getDownpaymentFractionOfCash() * agent.getCash()) {
                     // logger.warn(agent +
                     // " will not invest in {} technology as he does not have enough money for downpayment",
                     // technology);
-                } else {
+                }
+                // Calculate NPV of the investment
+                else {
 
+                    // Fuel prices
                     Map<Substance, Double> myFuelPrices = new HashMap<Substance, Double>();
                     for (Substance fuel : technology.getFuels()) {
                         myFuelPrices.put(fuel, expectedFuelPrices.get(fuel));
                     }
+                    // Fuel mix of plant
                     Set<SubstanceShareInFuelMix> fuelMix = calculateFuelMix(plant, myFuelPrices,
                             expectedCO2Price.get(market));
                     plant.setFuelMix(fuelMix);
 
+                    // Calculate marginal costs
                     double expectedMarginalCost = determineExpectedMarginalCost(plant, expectedFuelPrices,
                             expectedCO2Price.get(market));
                     double runningHours = 0d;
@@ -318,6 +305,11 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                     // TODO somehow the prices of long-term contracts could also
                     // be used here to determine the expected profit. Maybe not
                     // though...
+                    // Check all segments of the load duration curve as well as
+                    // the
+                    // corresponding electricity price in order to
+                    // find out whether the power plant would operate in the
+                    // segment
                     for (SegmentLoad segmentLoad : market.getLoadDurationCurve()) {
                         double expectedElectricityPrice = marketInformation.expectedElectricityPricesPerSegment
                                 .get(segmentLoad.getSegment());
@@ -331,9 +323,6 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                         }
                     }
 
-                    // logger.warn(agent +
-                    // "expects technology {} to have {} running", technology,
-                    // runningHours);
                     // expect to meet minimum running hours?
                     if (runningHours < plant.getTechnology().getMinimumRunningHours()) {
                         // logger.warn(agent+
@@ -341,9 +330,11 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                         // technology, runningHours);
                     } else {
 
+                        // Get Fixed Costs
                         double fixedOMCost = calculateFixedOperatingCost(plant, getCurrentTick());// /
                         // plant.getActualNominalCapacity();
 
+                        // Get operating profit
                         double operatingProfit = expectedGrossProfit - fixedOMCost;
 
                         // TODO Alter discount rate on the basis of the amount
@@ -386,6 +377,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                         // logger.warn("Agent {}  found that the projected discounted inflows for technology {} to be "
                         // + discountedOpProfit, agent, technology);
 
+                        // Project value
                         double projectValue = discountedOpProfit + discountedCapitalCosts;
 
                         if (debug) {
@@ -398,11 +390,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                         // Store all projects with positive project values in a
                         // map
                         // (technologiesWithPositiveNPV)
-                        // Divide project value by capacity, in order not to
-                        // favor
-                        // large power plants (which have the single largest
-                        // NPV).
-
+                        // Divide project value by capacity
                         if (projectValue > 0) {
                             // look if technology already exists
                             if (technologiesWithPositiveNPV.containsKey(plant.getTechnology())) {
@@ -420,7 +408,9 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                                     bestNodes.put(plant.getTechnology(), node);
                                 }
 
-                            } else {
+                            }
+                            // if technology does not yet exist in the map
+                            else {
                                 technologiesWithPositiveNPV.put(plant.getTechnology(),
                                         projectValue / plant.getActualNominalCapacity());
                                 bestNodes.put(plant.getTechnology(), node);
@@ -481,7 +471,9 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
             // Create the loan
             plant.createOrUpdateLoan(loan);
 
-        } else {
+        }
+        // no investment? -> Set willingness to invest to false
+        else {
             // logger.warn("{} found no suitable technology anymore to invest in at tick "
             // + getCurrentTick(), agent);
             // agent will not participate in the next round of investment if
@@ -509,13 +501,19 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
     }
 
     /**
-     * TODO
+     * Method to decide on an Investment considering risk
      *
      * @param projects
+     *            all possible projects with positive NPV
      * @param fuelPriceRegressions
+     *            the regression objects for fuel prices
      * @param co2PriceRegression
+     *            the regression objects for co2 prices
      * @param expectedDemandRegression
-     * @return
+     *            the regression objects for electricity demand
+     *
+     * @return the technology to invest in (null, in case no investment is
+     *         undertaken)
      */
     public PowerGeneratingTechnology decideOnInvestmentConsideringRisk(
             TreeMap<PowerGeneratingTechnology, Double> projects, Map<PowerGeneratingTechnology, PowerGridNode> nodes,
@@ -524,6 +522,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
             SimpleRegressionWithPredictionInterval co2PriceRegression,
             Map<ElectricitySpotMarket, ? extends SimpleRegressionWithPredictionInterval> expectedDemandRegression,
             AbstractEnergyProducerConsideringRiskScenarios riskAgent, long futureTimePoint) {
+        // If no projects with positive NPV
         if (projects.isEmpty()) {
             return null;
         }
@@ -545,18 +544,23 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                     logger.warn("Agent {} now evaluates risk of an investment in {}", riskAgentScenarios,
                             bestTechnology);
                 }
+                // Check all scenarios
                 for (MarketInformation mar : scenarios) {
                     if (bestTechnology != null) {
                         double npvInScenario;
                         double relativeNPV;
+                        // Calculate NPV in scenario
                         npvInScenario = calculateHypotheticalNPVPerCapacity(bestTechnology, nodes.get(bestTechnology),
                                 mar, riskAgentScenarios, futureTimePoint);
 
+                        // get threshold
                         switch (riskAgentScenarios.getThresholdDefinition()) {
                         // case 1: relatively against net worth of company
                         case 1:
                             double equity = reps.energyProducerRepository.calculateEquityOfEnergyProducer(
                                     riskAgentScenarios, getCurrentTick());
+                            // Makes somehow only sense for positive equite
+                            // values...
                             if (equity > 0) {
                                 relativeNPV = npvInScenario / equity;
                             } else {
@@ -568,8 +572,9 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                             }
                             break;
 
-                            // case 2: relative against liquidity
+                        // case 2: relative against liquidity
                         case 2:
+                            // only if liquidity > 0
                             if (riskAgentScenarios.getCash() > 0)
                                 relativeNPV = npvInScenario / riskAgentScenarios.getCash();
                             else if (npvInScenario >= 0) {
@@ -578,7 +583,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                                 relativeNPV = Double.MIN_VALUE;
                             }
                             break;
-                            // case 3: absolute
+                        // case 3: absolute
                         case 3:
                             relativeNPV = npvInScenario;
                         default:
@@ -586,27 +591,27 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                             relativeNPV = npvInScenario;
                             break;
                         }
-                        // threshold is met
+                        // if threshold is met
                         if (relativeNPV >= riskAgentScenarios.getThreshold()) {
                             // npv in this scenario is satisfactory
                             // DEBUG!
                             if (debug) {
                                 logger.warn(
                                         "(Relative) NPV of {} in scenario " + mar.name
-                                        + " is sufficient for Agent {}. Threshold: "
-                                        + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
+                                                + " is sufficient for Agent {}. Threshold: "
+                                                + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
                                         riskAgentScenarios);
                                 // logger.warn("Fuel prices are: " +
                                 // mar.fuelPrices.toString());
                             }
                         }
-                        // threshold is not met
+                        // if threshold is not met
                         else {
                             if (debug) {
                                 logger.warn(
                                         "(Relative) NPV of {} in scenario " + mar.name
-                                        + " is not satisfactory for Agent {}. Threshold: "
-                                        + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
+                                                + " is not satisfactory for Agent {}. Threshold: "
+                                                + riskAgentScenarios.getThreshold() + ".", Math.round(npvInScenario),
                                         riskAgentScenarios);
                                 // logger.warn("Fuel prices are: " +
                                 // mar.fuelPrices.toString());
@@ -625,13 +630,18 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
     }
 
     /**
-     * TODO
+     * Calculates hypthetical NPV for an investment in a certain technology
      *
      * @param technology
+     *            the technology that is to be evaluated
      * @param marketInformation
+     *            contains the corresponding market information
      * @param agent
+     *            the investor
      * @param futureTimePoint
-     * @return
+     *            the future time point that seves as the base year
+     *
+     * @return NPV/capacity
      */
     public double calculateHypotheticalNPVPerCapacity(PowerGeneratingTechnology technology, PowerGridNode node,
             MarketInformation marketInformation, EnergyProducer agent, Long futureTimePoint) {
@@ -647,6 +657,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         // logger.warn("Hypothetical fuel prices of the plant are " +
         // myFuelPrices.toString());
         // }
+        // calculate fuel mix
         Set<SubstanceShareInFuelMix> fuelMix = calculateFuelMix(plant, myFuelPrices, marketInformation.co2price);
         // DEBUG!
         // if (debug) {
@@ -654,6 +665,8 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         // fuelMix.toString());
         // }
         plant.setFuelMix(fuelMix);
+
+        // calculate marginal costs
         double expectedMarginalCost = determineExpectedMarginalCost(plant, marketInformation.fuelPrices,
                 marketInformation.co2price);
 
@@ -667,6 +680,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         double minPrice = Double.MAX_VALUE;
         int n = 0;
 
+        // go through all segments of the LDC
         for (SegmentLoad segmentLoad : marketInformation.market.getLoadDurationCurve()) {
             double expectedElectricityPrice = marketInformation.expectedElectricityPricesPerSegment.get(segmentLoad
                     .getSegment());
@@ -680,18 +694,22 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
             n++;
 
             double hours = segmentLoad.getSegment().getLengthInHours();
+            // if power plant has lower variable costs than expected electricity
+            // price
             if (expectedMarginalCost <= expectedElectricityPrice) {
+                // update running hours
                 runningHours += hours;
+                // update gross profit
                 if (technology.isIntermittent())
                     expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost)
-                    * hours
-                    * plant.getActualNominalCapacity()
-                    * reps.intermittentTechnologyNodeLoadFactorRepository
-                    .findIntermittentTechnologyNodeLoadFactorForNodeAndTechnology(node, technology)
-                    .getLoadFactorForSegment(segmentLoad.getSegment());
+                            * hours
+                            * plant.getActualNominalCapacity()
+                            * reps.intermittentTechnologyNodeLoadFactorRepository
+                                    .findIntermittentTechnologyNodeLoadFactorForNodeAndTechnology(node, technology)
+                                    .getLoadFactorForSegment(segmentLoad.getSegment());
                 else
                     expectedGrossProfit += (expectedElectricityPrice - expectedMarginalCost) * hours
-                    * plant.getAvailableCapacity(futureTimePoint, segmentLoad.getSegment(), numberOfSegments);
+                            * plant.getAvailableCapacity(futureTimePoint, segmentLoad.getSegment(), numberOfSegments);
             }
         }
 
@@ -703,17 +721,19 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         // Math.round(maxPrice));
         // }
 
+        // if running hours do not meet required level, set profit to 0
         if (runningHours < plant.getTechnology().getMinimumRunningHours()) {
             // logger.warn(agent+
             // " will not invest in {} technology as he expect to have {} running, which is lower then required",
             // technology, runningHours);
-            // TODO WHAT TO DO???????
             // DEBUG!
             if (debug) {
                 logger.warn("Hypothetical GrossProfit is 0 because runningHours are " + runningHours);
             }
             expectedGrossProfit = 0;
         }
+
+        // operating profit = gross profit - OM costs
         double fixedOMCost = calculateFixedOperatingCost(plant, getCurrentTick());
         double operatingProfit = expectedGrossProfit - fixedOMCost;
 
@@ -748,7 +768,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         // add up since discountedCapitalCosts are defined negative
         double projectValue = discountedOpProfit + discountedCapitalCosts;
 
-        // return absolute project value
+        // return project value divided by capacity
         return projectValue / plant.getActualNominalCapacity();
 
     }
@@ -857,7 +877,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
                     if (debug) {
                         logger.warn("added two scenarios with different CO2 prices (normal forecasted value was: "
                                 + baseMarket.co2price + "). Min CO2 price: " + minAndMaxCO2Price[0]
-                                + ". Max CO2 price: " + minAndMaxCO2Price[1]);
+                                        + ". Max CO2 price: " + minAndMaxCO2Price[1]);
                     }
                 }
             }
@@ -960,7 +980,13 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
     }
 
     /**
-     * TODO!
+     * Method that predicts fuel prices
+     *
+     * @param regressions
+     *            Regression objects
+     * @param futureTimePoint
+     *            future time point that serves as the base year
+     * @return map with the expected fuel prices
      */
     public Map<Substance, Double> predictFuelPrices(
             Map<Substance, ? extends SimpleRegressionWithPredictionInterval> regressions, long futureTimePoint) {
@@ -974,7 +1000,12 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
     }
 
     /**
-     * TODO!!
+     * Method to create a geometric trend regression object based on past market
+     * results
+     *
+     * @param agent
+     *            agent to create the regression object for
+     * @return geometric trend regression object
      */
     public Map<Substance, GeometricTrendRegressionWithPredictionInterval> createGeometricFuelPriceRegressions(
             EnergyProducer agent) {
@@ -1007,7 +1038,11 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
     }
 
     /**
-     * TODO!!
+     * Method to create a simple regression object based on past market results
+     *
+     * @param agent
+     *            energy producer to create the regression object for
+     * @return simple regression object
      */
     public Map<Substance, SimpleRegressionWithPredictionInterval> createSimpleFuelPriceRegressions(EnergyProducer agent) {
         // DEBUG!
@@ -1039,16 +1074,21 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
     }
 
     /**
+     * Method that determines the expected CO2 price (incl. tax)
      *
-     * TODO
+     * @param regression
+     *            regression object of the co2 price
+     * @param futureTimePoint
+     *            future time point (base year)
+     * @return co2 price
      */
-
     protected HashMap<ElectricitySpotMarket, Double> determineExpectedCO2PriceInclTax(
             SimpleRegressionWithPredictionInterval regression, long futureTimePoint) {
 
         HashMap<ElectricitySpotMarket, Double> co2Prices = new HashMap<ElectricitySpotMarket, Double>();
         Government government = reps.template.findAll(Government.class).iterator().next();
         double expectedCO2Price;
+        // price should be between 0 and the upper limit
         if (regression.getN() > 1) {
             expectedCO2Price = regression.predict(futureTimePoint);
             expectedCO2Price = Math.max(0, expectedCO2Price);
@@ -1059,6 +1099,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         // Calculate average of regression and past average:
         expectedCO2Price = (expectedCO2Price + regression.getYSum() / regression.getN()) / 2;
 
+        // check in all markets and add possible taxes
         for (ElectricitySpotMarket esm : reps.marketRepository.findAllElectricitySpotMarkets()) {
             double nationalCo2MinPriceinFutureTick = reps.nationalGovernmentRepository
                     .findNationalGovernmentByElectricitySpotMarket(esm).getMinNationalCo2PriceTrend()
@@ -1076,10 +1117,15 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
     }
 
     /**
+     * Method that determines the expected CO2 price (incl. tax) - fundamental
+     * forecast
      *
-     * TODO
+     * @param regression
+     *            regression object of the co2 price
+     * @param futureTimePoint
+     *            future time point (base year)
+     * @return co2 price
      */
-
     protected HashMap<ElectricitySpotMarket, Double> determineExpectedCO2PriceInclTaxAndFundamentalForecast(
             SimpleRegressionWithPredictionInterval regression, long futureTimePoint) {
 
@@ -1099,9 +1145,10 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         // Calculate average of regression and past average:
         expectedRegressionCO2Price = (expectedRegressionCO2Price + regression.getYSum() / regression.getN()) / 2;
 
+        // evaluate expected clearing point for this tick
         ClearingPoint expectedCO2ClearingPoint = reps.clearingPointRepository.findClearingPointForMarketAndTime(
                 co2Auction, getCurrentTick()
-                + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
+                        + reps.genericRepository.findFirst(DecarbonizationModel.class).getCentralForecastingYear(),
                 true);
         expectedCO2Price = (expectedCO2ClearingPoint == null) ? 0 : expectedCO2ClearingPoint.getPrice();
         expectedCO2Price = (expectedCO2Price + expectedRegressionCO2Price) / 2;
@@ -1122,30 +1169,41 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
     }
 
     /**
-     * TODO
+     * Creates a gemoetric trend regression object for the electricity demand
      *
      * @param agent
+     *            energy producer
      * @param currentTick
-     * @return
+     *            current Tick
+     * @return geometric trend regression object
      */
     public Map<ElectricitySpotMarket, ? extends SimpleRegressionWithPredictionInterval> createGeometricDemandRegression(
             EnergyProducer agent, long currentTick) {
         Map<ElectricitySpotMarket, GeometricTrendRegressionWithPredictionInterval> demandRegressions = new HashMap<ElectricitySpotMarket, GeometricTrendRegressionWithPredictionInterval>();
 
+        // All electricity markets
         for (ElectricitySpotMarket elm : reps.template.findAll(ElectricitySpotMarket.class)) {
             GeometricTrendRegressionWithPredictionInterval gtr = new GeometricTrendRegressionWithPredictionInterval();
+            // all timepoints that are within time horizon
             for (long time = getCurrentTick(); time > getCurrentTick()
                     - agent.getNumberOfYearsBacklookingForForecasting()
                     && time >= 0; time = time - 1) {
                 gtr.addData(time, elm.getDemandGrowthTrend().getValue(time));
             }
+            // add data point
             demandRegressions.put(elm, gtr);
         }
         return demandRegressions;
     }
 
-    /*
-     * TODO
+    /**
+     * Predicts future electricity demand for each market in base year
+     *
+     * @param regressions
+     *            regression object on which prediction is based
+     * @param futureTimePoint
+     *            base year
+     * @return prediction for each market
      */
     public Map<ElectricitySpotMarket, Double> predictElectricityDemand(
             Map<ElectricitySpotMarket, ? extends SimpleRegressionWithPredictionInterval> regressions,
@@ -1174,6 +1232,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         return investmentCashFlow;
     }
 
+    // calculates NPV
     private double npv(TreeMap<Integer, Double> netCashFlow, double wacc) {
         double npv = 0;
         for (Integer iterator : netCashFlow.keySet()) {
@@ -1182,6 +1241,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         return npv;
     }
 
+    // determines marginal costs
     public double determineExpectedMarginalCost(PowerPlant plant, Map<Substance, Double> expectedFuelPrices,
             double expectedCO2Price) {
         double mc = determineExpectedMarginalFuelCost(plant, expectedFuelPrices);
@@ -1190,6 +1250,7 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         return mc;
     }
 
+    // determines marginal fuel costs
     public double determineExpectedMarginalFuelCost(PowerPlant powerPlant, Map<Substance, Double> expectedFuelPrices) {
         double fc = 0d;
         for (SubstanceShareInFuelMix mix : powerPlant.getFuelMix()) {
@@ -1199,17 +1260,6 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
         }
         return fc;
     }
-
-    // Not needed?
-    // private PowerGridNode getNodeForZone(Zone zone) {
-    // for (PowerGridNode node :
-    // reps.genericRepository.findAll(PowerGridNode.class)) {
-    // if (node.getZone().equals(zone)) {
-    // return node;
-    // }
-    // }
-    // return null;
-    // }
 
     /**
      * Creates a Map with all Substances, that are marked to be included in the
@@ -1224,12 +1274,15 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
             AbstractEnergyProducerConsideringRiskScenarios a) {
         Map<Substance, Double> result = new HashMap<Substance, Double>();
 
+        // check which substances are included in the risk evaluation
         boolean coalFound = !a.isCoalPriceRiskIncluded();
         boolean gasFound = !a.isGasPriceRiskIncluded();
         boolean ligniteFound = !a.isLignitePriceRiskIncluded();
         boolean uraniumFound = !a.isUraniumPriceRiskIncluded();
         boolean biomassFound = !a.isBiomassPriceRiskIncluded();
 
+        // search substances in repository by string and add confidence level to
+        // the map
         for (Substance substance : reps.substanceRepository.findAllSubstancesTradedOnCommodityMarkets()) {
             if (!coalFound && substance.getName().equalsIgnoreCase("Coal")) {
                 result.put(substance, a.getCoalPriceConfidenceLevel());
@@ -1266,9 +1319,13 @@ GenericInvestmentRole<T> implements Role<T>, NodeBacked {
             logger.warn("Uranium should be considered in the risk assessment, but it could not be found to be traded on a comodity market");
         if (!biomassFound)
             logger.warn("Biomass should be considered in the risk assessment, but it could not be found to be traded on a comodity market");
+
         return result;
     }
 
+    // Class that covers the relevant market information including the
+    // dispatched power plants and
+    // the ldc
     private class MarketInformation {
 
         Map<Segment, Double> expectedElectricityPricesPerSegment;

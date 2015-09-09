@@ -22,14 +22,15 @@ import agentspring.simulation.SimulationParameter;
  * their investment. In this class the simulation parameters about the type of
  * considered risks are defined as well as the confidence interval for the
  * variables under consideration.
- * 
+ *
  * @author Marvin Nebel (mnebel@uni-osnabrueck.de)
  *
  */
 public abstract class AbstractEnergyProducerConsideringRiskScenarios extends EnergyProducer {
 
     /**
-     *
+     * Simulation parameters to define what risk factors are included and the
+     * respective confidence intervals
      */
     @SimulationParameter(label = "Coal price risk")
     private boolean coalPriceRiskIncluded;

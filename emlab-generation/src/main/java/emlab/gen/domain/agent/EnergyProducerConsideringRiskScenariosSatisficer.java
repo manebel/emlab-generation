@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICESE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,7 @@ import agentspring.simulation.SimulationParameter;
 
 /**
  * Implementation of an EnergyProducerConsideringRisk that creates several
- * scenarios. An investment is only undertaken if the npv of this project
+ * scenarios. An investment is only undertaken if the NPV of this project
  * exceeds a certain threshold in all scenarios.
  *
  * @author Marvin Nebel (mnebel@uni-osnabrueck.de)
@@ -55,7 +55,7 @@ public class EnergyProducerConsideringRiskScenariosSatisficer extends AbstractEn
     }
 
     public EnergyProducerConsideringRiskScenariosSatisficer() {
-        // TODO Auto-generated constructor stub
+        // Auto-generated constructor stub
     }
 
 }

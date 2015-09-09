@@ -14,7 +14,7 @@ fuelPriceFileStumpHighVolatility<-"/data/stochasticFuelPricesHighVolatility/fuel
 demandFileStumpHighVolatility<-"/data/stochasticDemandCWEandGBHighVolatility/demand-"
 
 
-#Risk specific parameters
+#Risk specific parameters: standard set
 demandIncluded<-TRUE
 coalPriceIncluded<-TRUE
 gasPriceIncluded<-TRUE
@@ -41,6 +41,7 @@ gasPriceVolatility<-"normal"
 
 
 
+#standard set
 standardRiskParameterSet=list("#demandIncluded"=demandIncluded,"#coalPriceIncluded"=coalPriceIncluded,"#gasPriceIncluded"=gasPriceIncluded,
                               "#lignitePriceIncluded"=lignitePriceIncluded, "#biomassPriceIncluded"=biomassPriceIncluded,"#uraniumPriceIncluded"=uraniumPriceIncluded,
                               "#co2PriceIncluded"=co2PriceIncluded,"#coalPriceConfidenceLevel"=coalPriceConfidenceLevel,
@@ -150,7 +151,6 @@ variations=list(
               )
 
 #BaseCase Scenario
-priceCeiling="120"
 coalPriceScenario=c("Coal.Medium","Coal.Low","Coal.High")
 gasPriceScenario=c("NaturalGas.Medium","NaturalGas.Low","NaturalGas.High")
 fuelPriceScenarios = c("FuelCentral")
